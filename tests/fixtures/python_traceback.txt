@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/app/server.py", line 118, in handle_request
+    payload = self._decode(body)
+              ^^^^^^^^^^^^^^^^^^
+  File "/app/codec.py", line 44, in _decode
+    return json.loads(raw)
+  File "/usr/lib/python3.11/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)

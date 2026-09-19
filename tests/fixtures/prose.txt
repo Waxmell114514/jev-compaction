@@ -1,0 +1,7 @@
+The deployment finished without incident. All three regions reported healthy
+within four minutes of the rollout starting.
+
+One caveat worth recording: the canary in eu-west-1 took noticeably longer to
+converge than the others, roughly ninety seconds against a usual twenty.
+
+No action was taken. The next rollout should watch that region specifically.

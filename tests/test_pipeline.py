@@ -7,8 +7,6 @@ so they are also the package's smoke test for the whole of Phase 1.
 from __future__ import annotations
 
 import pytest
-from jevctx.shadow import ShadowLog
-from jevctx.store import InMemoryStore
 
 from jevctx.pipeline import (
     ADMIT_QUESTION,
@@ -23,6 +21,8 @@ from jevctx.pipeline import (
     reconstruct,
     retrieve,
 )
+from jevctx.shadow import ShadowLog
+from jevctx.store import InMemoryStore
 from jevctx.testing import FakeJevClient
 from jevctx.tokens import estimate_tokens
 from jevctx.types import (
@@ -36,7 +36,7 @@ TASK = "Install dependencies and get the test suite passing."
 ORIGIN = Origin(source="tool:bash", ref="npm install", turn=3)
 
 
-def noisy_log(noise_lines: int = 60, signal_lines: int = 40) -> str:
+def noisy_log(noise_lines: int = 60, signal_lines: int = 60) -> str:
     """Half progress noise, half content worth keeping, interleaved in blocks."""
     blocks: list[str] = []
     for i in range(6):
@@ -86,7 +86,10 @@ def test_admit_elides_noise_and_saves_tokens() -> None:
     assert result.pointers, "expected the noise runs to be relocated"
     assert result.result_tokens < result.original_tokens
     assert "IMPORTANT added dependency" in result.text
-    assert "npm http fetch" not in result.text
+    # The pointer summary quotes its first elided line by design, so check the
+    # body with the pointer lines removed.
+    body = "\n".join(ln for ln in result.text.splitlines() if not ln.startswith("[[elided"))
+    assert "npm http fetch" not in body
     assert len(store) == len(result.pointers)
 
 

@@ -1,0 +1,4 @@
+TypeError: Cannot read properties of undefined (reading 'id')
+    at resolveUser (/srv/app/lib/users.js:88:21)
+    at async handler (/srv/app/routes/profile.js:12:18)
+    at async Server.<anonymous> (/srv/app/server.js:203:5)

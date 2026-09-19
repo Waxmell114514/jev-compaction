@@ -353,6 +353,12 @@ def expand(record_id: str, *, store: MemoryStore, log: ShadowLog, turn: int) -> 
         raise KeyError(f"no stored record for pointer id {record_id!r}")
     store.touch(record_id, expand=True)
     log.outcome(kind="expand", item_id=record_id, turn=turn)
+    # A record merges a run of segments, but the gate logged its decision per
+    # segment. Attribute the expand back to each of them, or the false negative
+    # never links up with the score that caused it -- which is exactly what
+    # ShadowLog.replay needs to tune a threshold.
+    for segment_id in record.meta.get("segment_ids", []):
+        log.outcome(kind="expand", item_id=segment_id, turn=turn)
     return record.text
 
 

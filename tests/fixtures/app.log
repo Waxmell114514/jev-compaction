@@ -1,0 +1,6 @@
+2026-03-01T09:14:02Z INFO  starting worker pool size=8
+2026-03-01T09:14:02Z INFO  connected to postgres://db.internal:5432/app
+2026-03-01T09:14:03Z DEBUG cache warm skipped, empty keyspace
+2026-03-01T09:14:07Z ERROR failed to enqueue job id=4411 reason=timeout
+2026-03-01T09:14:07Z ERROR failed to enqueue job id=4412 reason=timeout
+2026-03-01T09:14:20Z INFO  retry succeeded for job id=4411

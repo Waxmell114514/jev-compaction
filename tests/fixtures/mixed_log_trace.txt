@@ -1,0 +1,10 @@
+2026-03-01T09:20:01Z INFO  handling upload id=9912
+2026-03-01T09:20:01Z INFO  validating manifest
+2026-03-01T09:20:02Z ERROR unhandled exception in worker
+Traceback (most recent call last):
+  File "/app/worker.py", line 77, in process
+    manifest = parse(blob)
+  File "/app/parse.py", line 21, in parse
+    raise ValueError("bad manifest")
+ValueError: bad manifest
+2026-03-01T09:20:02Z INFO  worker restarted

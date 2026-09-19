@@ -1,0 +1,6 @@
+java.lang.IllegalStateException: connection pool exhausted
+	at com.example.db.Pool.acquire(Pool.java:142)
+	at com.example.db.Repo.find(Repo.java:58)
+Caused by: java.util.concurrent.TimeoutException
+	at java.base/java.util.concurrent.FutureTask.get(FutureTask.java:204)
+	... 12 more
