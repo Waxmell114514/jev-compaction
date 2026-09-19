@@ -58,14 +58,15 @@ jevctx/
   types.py      # shared dataclasses, protocols, constants        [FROZEN — do not edit]
   tokens.py     # estimate_tokens()                               [FROZEN — do not edit]
   testing.py    # FakeJevClient, fixtures                         [FROZEN — do not edit]
-  jev.py        # HttpJevClient, retry, BudgetPlanner             (A)
+  jev.py        # HttpJevClient, retry, rate limiting              (A)
   segments.py   # deterministic segmentation of raw output        (B)
   context.py    # ContextBuffer: frozen prefix + work area        (C)
   ledger.py     # CacheLedger: cache-cost accounting              (C)
   store.py      # MemoryStore: InMemoryStore, JsonlStore          (D)
   shadow.py     # ShadowLog: decision + outcome logging           (D)
+  budget.py     # BudgetPlanner: batch packing under Jev limits  (E)
   scorer.py     # score_items(): chunking + parallel Jev          (E)
-  pipeline.py   # admit() / retrieve() / expand()                 (E)
+  pipeline.py   # admit() / retrieve() / expand()          (integration)
 ```
 
 `types.py`, `tokens.py` and `testing.py` are written up front and are the contract. Implementers
@@ -189,7 +190,7 @@ Rules that hold for every kind:
 4. A segment exceeding `max_segment_tokens` is split at the nearest line boundary and both halves
    are marked `meta["split"] = True`.
 
-### 4.2 `jev.py` — transport and budget
+### 4.2 `jev.py` — transport
 
 ```python
 class HttpJevClient:
@@ -207,8 +208,12 @@ class HttpJevClient:
   All inherit `JevError`.
 - Raise `JevBudgetError` *before* sending if `len(questions) > 32`, or a `Score` has <2 or >10
   levels, or a `Choice` has >255 options, or either token budget is exceeded. Callers split.
+  (`jevctx.testing.FakeJevClient._check_limits` is the reference implementation of this check;
+  `HttpJevClient` must reject exactly the same set of requests.)
 - A bounded thread pool / semaphore caps in-flight requests at `max_concurrency`, and a token
   bucket keeps the request rate under `RATE_LIMIT_RPM`.
+
+### 4.2b `budget.py` — batch packing
 
 ```python
 @dataclass(frozen=True)
