@@ -151,6 +151,26 @@ Start with the demo. It runs offline against a scripted stand-in, so you don't n
 TYPESAFE_API_KEY=sk-... .venv/bin/python demo.py   # same code, real Jev / 同样的代码，真实的 Jev
 ```
 
+### Connecting a real key · 接入真实的 key
+
+Set `TYPESAFE_API_KEY` and everything switches to real Jev — `demo.py` picks it up, and
+`HttpJevClient()` reads it by default. To check the key actually works before wiring it into
+an agent:
+
+设置 `TYPESAFE_API_KEY`，所有东西就会切到真实的 Jev——`demo.py` 会自动识别，`HttpJevClient()` 默认读它。在接进 agent 之前，先确认 key 真的能用：
+
+```bash
+export TYPESAFE_API_KEY=...
+.venv/bin/python -m jevctx.check
+```
+
+That makes real requests and checks three things: all three question types come back and
+parse, the gate actually relocates something from a real tool output, and the pointer expands
+back byte for byte. It prints latency, token usage and cost, and on failure it tells you
+which of the three broke — a bad key, a malformed request, or an unreachable server.
+
+它会发真实请求，检查三件事：三种问题类型都能返回并解析、gate 确实从真实工具输出里搬走了东西、指针能一字不差地展开回来。它会打印延迟、token 用量和花费；失败时会告诉你是哪一环出了问题——key 不对、请求格式错、还是连不上。
+
 Then read these, in this order / 然后按这个顺序读：
 
 | File | What's in it · 里面是什么 |

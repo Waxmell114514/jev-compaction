@@ -314,6 +314,8 @@ def main() -> int:
     print("Read SPEC.md for the reasoning, jevctx/pipeline.py for the 200 lines")
     print("that do the work. Everything here runs offline, tests included.")
     print()
+    print("Got a real key? \033[1mpython -m jevctx.check\033[0m verifies it end to end.")
+    print()
     return 0
 
 

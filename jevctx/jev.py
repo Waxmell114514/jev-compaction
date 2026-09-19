@@ -338,6 +338,15 @@ class HttpJevClient:
     ) -> None:
         self.close()
 
+    @property
+    def endpoint(self) -> str:
+        """The full URL this client posts to. Handy when a check has to report it."""
+        return f"{str(self._client.base_url).rstrip('/')}/systemone"
+
+    @property
+    def model(self) -> str:
+        return self._model
+
     def ask(self, state: State, questions: Mapping[str, Question]) -> dict[str, Answer]:
         check_request_budget(state, questions)
         body: dict[str, Any] = {

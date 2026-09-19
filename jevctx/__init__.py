@@ -7,6 +7,7 @@ deleted.
 """
 
 from jevctx.budget import Batch, BudgetPlanner
+from jevctx.check import run_check
 from jevctx.context import (
     DEFAULT_COMMIT_POLICY,
     AllOf,
@@ -73,7 +74,7 @@ __all__ = [
     "Pointer", "RateLimiter", "Record", "RetryPolicy", "Score", "ScoreItem",
     "ScoreResult", "Segment", "ShadowLog", "ShadowStats", "ToolDepthZero",
     "TurnCount", "TurnSignals", "WorkAreaTokens",
-    "admit", "build_state", "detect_kind", "estimate_tokens", "expand",
+    "admit", "build_state", "run_check", "detect_kind", "estimate_tokens", "expand",
     "find_pointers", "format_pointer", "make_block", "mark_hits", "parse_pointer",
     "reconstruct", "retrieve", "score_items", "score_map", "segment",
 ]
