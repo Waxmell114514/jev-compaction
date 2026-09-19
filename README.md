@@ -1,95 +1,114 @@
 # awesome-jev-compaction
 
-Cache-preserving agent context compaction and memory, with
-[TypeSafe Jev](https://docs.typesafe.ai) as the semantic judgement layer.
+**What [Jev](https://docs.typesafe.ai) changes about agent memory and context compaction.**
 
-> An agent's context is `[frozen prefix] + [work area]`. The frozen prefix is append-only, so the
-> KV cache over it is never invalidated. Raw tool output is **relocated**, never deleted: what the
-> gate removes goes to an external store and leaves a one-line pointer the agent can `expand()`.
-> Jev decides what to relocate at write time and what to pull back at read time — the same scoring
-> primitive at both ends.
-
-See **[SPEC.md](SPEC.md)** for the full design and the Jev constraints every decision is derived
-from. Phase 0 and Phase 1 are implemented; 312 tests, no network required.
-
-## The three constraints that shape everything
-
-| Constraint | Consequence |
-|---|---|
-| `state` + longest question ≲ **32k tokens** | Jev never sees a full agent context. Every call works on a digest or a chunk. |
-| **32 questions** per request | Independent per-item judgements batch at 32. `Choice`'s 255 options are a *ranking*, not independent gating. |
-| `$0.042`/MTok in, **output free** | Cost is a function of `state` alone. Fan out many questions over one shared state; never re-send the same state per item. |
-
-That last one is the design's central claim, so it is mechanised as a test: for every request,
-the set of item texts in `state` must equal exactly the set its questions ask about.
-
-## Usage
-
-```python
-from jevctx import (
-    ContextBuffer, InMemoryStore, ShadowLog, HttpJevClient, Origin,
-    admit, expand, make_block, DEFAULT_COMMIT_POLICY,
-)
-from jevctx.types import TurnSignals
-
-store, log = InMemoryStore(), ShadowLog(path="shadow.jsonl")
-buffer, client = ContextBuffer(), HttpJevClient()   # reads TYPESAFE_API_KEY
-
-buffer.append_work(make_block("system", "You are a build assistant."))
-buffer.commit(reason="system prompt is stable")
-
-# Gate a tool result on its way into the work area.
-result = admit(raw_output, Origin(source="tool:bash", ref="npm install", turn=1),
-               task_digest="Fix the dependency resolution failure.",
-               turn=1, client=client, store=store, log=log)
-
-buffer.append_work(make_block("tool", result.text, turn=1))
-decision = DEFAULT_COMMIT_POLICY.should_commit(buffer, TurnSignals(turn=1, tool_depth=0))
-if decision.commit:
-    buffer.commit(decision.upto, reason=decision.reason)
-
-# Nothing was destroyed; the agent can go back for it.
-original = expand(result.pointers[0].id, store=store, log=log, turn=2)
-```
-
-Running that against a fake scorer over a 60-line npm log:
-
-```
-875 -> 405 tokens, 1 pointer(s)
-[[elided id=r:243d3a59 lines=1-31 tokens=501 "npm http fetch GET 200 https://registry.npmjs.org/p0 0ms"]]
-expanded 1751 chars back; false-negative rate now 100%
-replay at 0.0 would have caused 0 false negatives
-```
-
-Register `EXPAND_TOOL_SCHEMA` with the agent's tools. The gate is only safe if the agent can
-actually undo it.
-
-## Rolling it out
-
-1. **Phase 0 alone.** `ContextBuffer` + a commit policy. No Jev, no store. Measure cache hit rate.
-2. **Phase 1 with `GateConfig(shadow_only=True)`.** Everything is scored and logged; nothing is
-   elided. This is a supported mode, not a debug flag.
-3. `ShadowLog.replay(t)` across candidate thresholds, then set `shadow_only=False`.
-4. Watch `false_negative_rate()`. Above ~2%, the threshold is too high.
-
-## Safety rails
-
-The gate is wrong sometimes, so three things bound the damage:
-
-- **Relocation, not deletion.** A false drop costs a round trip, not information.
-- **A tripwire.** If the scorer wants to elide more than 70% of an output, the output is kept and
-  the tripwire is logged — a scorer that wants to drop almost everything is reporting a bad
-  question, not a worthless output.
-- **Fail-open.** A Jev outage scores everything 1.0 and passes text through untouched.
-
-**Jev is not a security boundary.** Typed output means Jev itself cannot be turned into an
-instruction emitter, but its *judgement* can be influenced by the text it is judging. Tool
-allowlists and approval gates still apply.
-
-## Development
+A working demonstration, not a library. Jev is a System One model: it doesn't write
+text, it answers typed questions in 70–500ms at \$0.042/MTok with output free. That
+combination turns three things that used to be too expensive or too unreliable to do
+per-turn into things you can do on every tool call.
 
 ```bash
+git clone https://github.com/Waxmell114514/awesome-jev-compaction
+cd awesome-jev-compaction
 uv venv .venv && uv pip install --python .venv/bin/python -e '.[dev]'
-.venv/bin/python -m pytest      # 312 tests, no network, no API key
-ruff check .
+.venv/bin/python demo.py      # runs offline; set TYPESAFE_API_KEY for real Jev
 ```
+
+## The idea in one paragraph
+
+Context is `[frozen prefix] + [work area]`. The prefix is append-only, so the KV cache
+over it is never invalidated and all compaction happens in the tail. Tool output is
+gated on the way *in* rather than summarised on the way out — and the gate **relocates**
+rather than deletes, leaving a pointer the agent can `expand()`. Jev scores what to
+relocate at write time and what to pull back at read time. It's the same call in both
+places.
+
+## Five things worth demonstrating
+
+### 1. Jev bills for `state`, not for questions
+
+32 questions per request, ~32k of state, input-only billing. So the shape that matters
+is *many questions over one shared state* — and the mistake that costs real money is
+re-sending the same state once per item.
+
+```
+  120 items, 8,760 tokens of text
+  4 requests × ≤32 questions
+
+  this shape (chunk in state)         10,340 tok   $0.000434
+  naive (whole corpus each time)      35,040 tok   $0.001472
+  3.4x cheaper, same answers
+```
+
+Invisible unless you look at what you put in `state`. There's a test asserting every
+request's state holds exactly the items its questions ask about — no more, no fewer.
+
+### 2. Compaction is extractive, so memory can't hallucinate
+
+Jev *can't* generate text. That's the feature: kept lines are verbatim originals. Nothing
+in memory was ever invented by a model rewriting a summary of a summary.
+
+### 3. The cost math says "compact", so ask Jev a different question
+
+At 0.1× cache reads and 1.25× writes, compacting 100k→20k pays back in **~3 turns**. Cost
+almost always argues for compacting. So the useful thing to ask Jev at a commit point
+isn't *"is this worth compacting"* — it's *"is this subtask actually finished."* A safety
+question, not an economic one.
+
+### 4. You can finally afford to check whether your threshold was right
+
+Every decision is logged with its score. When the agent later calls `expand()`, that's
+ground truth that the gate was too aggressive. Replaying the log costs nothing:
+
+```
+  threshold       kept   elided   tokens saved   still missed
+  0.00              15        0              0              0
+  0.10              12        3          1,092              0
+  0.35               9        6          1,260              3
+  0.60               6        9          1,530              3
+```
+
+0.10 saves 1,092 tokens and misses nothing observed. 0.35 buys 168 more tokens and costs
+three things the agent had to go back for. That table is the whole argument for logging
+scores from day one.
+
+### 5. Every failure mode should cost tokens, not information
+
+- **Relocation, not deletion** — a false drop is a round trip, not lost data.
+- **Fail-open** — Jev unreachable means everything scores 1.0 and text passes through.
+- **A tripwire** — if the scorer wants to elide >70% of an output, keep all of it. A
+  scorer that wants to drop almost everything is reporting a bad question, not a
+  worthless output.
+- **`shadow_only=True`** — score and log everything, change nothing. How you'd actually
+  roll this out.
+
+## Where things live
+
+| | |
+|---|---|
+| [`demo.py`](demo.py) | The tour above, runnable |
+| [`SPEC.md`](SPEC.md) | The reasoning, and every Jev constraint each decision derives from |
+| `jevctx/pipeline.py` | `admit()` / `retrieve()` / `expand()` — the ~200 lines that matter |
+| `jevctx/scorer.py` | Batching 32 questions per request over chunk-scoped state |
+| `jevctx/context.py` | The append-only buffer, invariant enforced at runtime |
+| `jevctx/segments.py` | Splitting output without destroying it (a halved stack trace isn't one) |
+| `jevctx/shadow.py` | The decision log and `replay()` |
+
+## What's here and what isn't
+
+Implemented: the staging area, entry gating, extractive relocation, external memory with
+Jev as the retrieval layer, the decision log. The test suite runs offline too — no network, no API key.
+
+Deliberately not implemented — they need metadata or hit data that doesn't exist on day
+one, so the hooks are in place and the data collection is already running:
+Jev-driven commit points, multi-dimensional metadata labelling, supersession chains,
+tier promotion, Bayesian threshold calibration.
+
+**Jev is not a security boundary.** Typed output means Jev itself can't be turned into an
+instruction emitter — genuinely useful. But its *judgement* can be influenced by the text
+it's judging. Tool allowlists and approval gates still apply.
+
+## Caveats on the demo
+
+Without `TYPESAFE_API_KEY` the scores come from a hand-written lookup table, clearly
+labelled as such in the output. The code path is identical; only the client differs.
