@@ -344,7 +344,7 @@ class GateConfig:
 
 def admit(raw: str, origin: Origin, *, task_digest: str, turn: int,
           client: JevClient, store: MemoryStore, log: ShadowLog,
-          config: GateConfig = GateConfig()) -> AdmitResult
+          config: GateConfig = DEFAULT_GATE_CONFIG) -> AdmitResult
 
 def retrieve(task_digest: str, *, turn: int, client: JevClient, store: MemoryStore,
              log: ShadowLog, k: int = 5, budget_tokens: int = 24_000,
