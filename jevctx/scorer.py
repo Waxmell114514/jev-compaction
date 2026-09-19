@@ -8,14 +8,14 @@ occasionally keeping something that could have been elided; the caller can alway
 score later, but it cannot recover text this function silently dropped.
 
 This module fans many single-item ``Noul`` questions out over one shared ``state`` per
-batch -- never one request per item -- because SPEC.md section 1.1 prices Jev by state, not
+batch -- never one request per item -- because Jev is priced by state, not
 by question. ``BudgetPlanner`` (jevctx.budget) decides batch membership; this module only
 builds the request each batch implies, sends it, and maps the answers back to the caller's
 items by position.
 
 The API is synchronous: parallelism across batches comes from a ``ThreadPoolExecutor``, not
 asyncio, so an agent loop that is not itself async can still call this directly. The Jev
-client's own concurrency semaphore is the real rate limiter (SPEC.md section 4.2); this
+client's own concurrency semaphore is the real rate limiter; this
 module does not add a second one on top of it.
 """
 
@@ -46,8 +46,8 @@ def build_state(
 ) -> dict[str, Any]:
     """The exact Jev ``state`` for one batch: the task digest plus these items only.
 
-    Public, not just an implementation detail, so the state-scoping test (SPEC.md section
-    7.3) -- and any caller that wants to preview a request -- can rely on this shape
+    Public, not just an implementation detail, so the state-scoping test -- and any
+    caller that wants to preview a request -- can rely on this shape
     directly instead of re-deriving it. ``refs`` and ``items`` must be the same length and
     are paired up positionally, exactly as ``Batch.question_keys`` and ``Batch.items`` are.
     """

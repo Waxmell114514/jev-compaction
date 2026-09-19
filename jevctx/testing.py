@@ -1,6 +1,6 @@
 """Test doubles.
 
-FROZEN CONTRACT -- do not edit. See SPEC.md section 2 and section 7.
+One of the shared contracts the rest of the package is written against.
 
 ``FakeJevClient`` is the reason no test in this package needs an API key. It
 enforces the *same* hard limits as the real transport, so a batching bug shows up

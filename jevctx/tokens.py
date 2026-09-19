@@ -1,6 +1,6 @@
 """Token estimation.
 
-FROZEN CONTRACT -- do not edit. See SPEC.md section 2.
+One of the shared contracts the rest of the package is written against.
 
 No tokenizer dependency: ``jevctx`` must be usable without pulling in a model's
 vocabulary. The estimate is deliberately *conservative* (it over-counts), because

@@ -9,7 +9,7 @@ once, and rejecting a request that would break a hard Jev limit before it ever
 reaches the network.
 
 ``HttpJevClient`` and ``jevctx.testing.FakeJevClient`` both implement the ``JevClient``
-protocol and must reject exactly the same requests (SPEC.md S4.2), so
+protocol and must reject exactly the same requests, so
 ``check_request_budget`` reimplements ``FakeJevClient._check_limits`` rather than
 importing it: the fake is a test double free to change shape, this is production
 code that must not depend on ``testing.py`` internals.
@@ -18,7 +18,7 @@ Retries use "full jitter" (``sleep = uniform(0, min(cap, base * 2**attempt))``):
 spreads retries out instead of having every caller wake up in lockstep, which matters
 here because ``scorer.score_items`` fans a single admit()/retrieve() call out across
 many worker threads sharing one ``HttpJevClient``. ``422`` is never retried because
-SPEC.md is explicit that a 422 means the request itself is malformed -- retrying it
+a 422 means the request itself is malformed, so retrying it
 just repeats the same bug instead of fixing it.
 """
 
@@ -250,7 +250,7 @@ def _to_jsonable(value: State) -> Any:
 
     ``json.dumps`` only special-cases actual ``dict``/``list``/``tuple`` instances,
     so a caller-supplied ``Mapping``/``Sequence`` that satisfies the ``State``
-    contract (SPEC.md's ``State`` alias) without being one of those -- a
+    contract (the ``State`` alias in types.py) without being one of those -- a
     ``MappingProxyType``, a custom view -- would otherwise fail to encode.
     """
     if isinstance(value, str):

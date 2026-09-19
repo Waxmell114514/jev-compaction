@@ -1,9 +1,9 @@
 """BudgetPlanner: pack ScoreItems into batches that respect Jev's per-request limits.
 
-SPEC.md section 1.1 is the reason this module exists: Jev bills for ``state`` and gives
+This module exists because of how Jev is priced: it bills for ``state`` and gives
 questions away free, so the only way to score N items without paying N times for the same
 state is to fan many questions out over one shared, minimal state. That in turn means every
-Jev request is bounded by three independent caps (SPEC.md section 1):
+Jev request is bounded by three independent caps:
 
 * at most ``MAX_QUESTIONS_PER_REQUEST`` questions per request,
 * ``state + all questions`` under ``STATE_PLUS_ALL_QUESTIONS_TOKENS``,
@@ -33,7 +33,7 @@ __all__ = ["Batch", "BudgetPlanner"]
 
 # Token cost of the per-item wrapper scorer.build_state() places around each item's text
 # (the `{"ref": "iN", "text": ...}` entry, minus the text itself). Derived once from
-# tokens.py's own estimator -- against the state shape SPEC.md section 4.3 documents --
+# tokens.py's own estimator -- against the state shape scorer.build_state produces --
 # rather than a guessed constant, so this planner's notion of "how big is this batch's
 # state" tracks what actually gets sent. The ref itself is 2-3 characters ("i0".."i31");
 # that variance is far inside the headroom this planner already applies below.
@@ -69,7 +69,7 @@ class BudgetPlanner:
     batch is closed and a new one is started. This is not bin-packing-optimal -- sorting or
     reordering items could sometimes squeeze one more into a batch -- but two things the
     spec cares about outweigh that here: ``plan()`` must preserve input order, and batch
-    membership is logged (SPEC.md section 4.5), so it needs to stay stable and predictable
+    membership is logged by shadow.py, so it needs to stay stable and predictable
     -- driven by the corpus order, not by an optimizer's incidental choices.
     """
 

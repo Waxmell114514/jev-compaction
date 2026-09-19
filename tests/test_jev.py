@@ -2,7 +2,7 @@
 
 Every test drives ``HttpJevClient`` through ``httpx.MockTransport``. Nothing here
 touches the network or needs an API key -- a test that required either would itself
-be a failed test, per SPEC.md S7.
+be a failed test.
 """
 
 from __future__ import annotations

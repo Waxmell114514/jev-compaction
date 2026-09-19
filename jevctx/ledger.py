@@ -1,4 +1,4 @@
-"""Cache-cost accounting for prefix compaction (SPEC.md sections 3.5 and 3.6).
+"""Cache-cost accounting for prefix compaction.
 
 Host LLM prompt caching bills a stable prefix at roughly ``CACHE_READ_MULT`` (0.1x) of
 the base input price on every turn it is merely replayed, and roughly
@@ -84,7 +84,7 @@ class CacheLedger:
 
         ``frozen_tokens`` is billed as a cache write or a cache read depending on
         ``cache_written``. ``work_tokens`` is always uncached: the work area is, by
-        construction (SPEC.md section 3), free to differ on every render, so a host
+        construction, free to differ on every render, so a host
         LLM's prompt cache never covers it.
         """
         self._records.append(

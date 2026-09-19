@@ -94,7 +94,7 @@ def test_admit_elides_noise_and_saves_tokens() -> None:
 
 
 def test_admit_expand_round_trip_is_byte_exact() -> None:
-    """SPEC.md section 7.7: nothing the gate removes is lost."""
+    """Nothing the gate removes is lost."""
     store, log = fresh()
     raw = noisy_log()
     result = admit(raw, ORIGIN, task_digest=TASK, turn=1, client=keep_noise_client(),
@@ -111,7 +111,7 @@ def test_admit_expand_round_trip_is_byte_exact() -> None:
 
 
 def test_gate_fails_open_when_jev_is_down() -> None:
-    """SPEC.md section 7.5: an outage must never strip an agent's context."""
+    """An outage must never strip an agent's context."""
     store, log = fresh()
     client = FakeJevClient.failing(JevUnavailableError("503"))
     raw = noisy_log()
@@ -124,7 +124,7 @@ def test_gate_fails_open_when_jev_is_down() -> None:
 
 
 def test_tripwire_distrusts_a_scorer_that_wants_everything_gone() -> None:
-    """SPEC.md section 7.6."""
+    """A scorer that wants to drop almost everything is reporting a bad question."""
     store, log = fresh()
     client = FakeJevClient.constant(0.0)
     raw = noisy_log()
@@ -136,7 +136,7 @@ def test_tripwire_distrusts_a_scorer_that_wants_everything_gone() -> None:
 
 
 def test_shadow_only_changes_nothing_but_logs_everything() -> None:
-    """SPEC.md section 7.8: step 2 of the rollout."""
+    """Step 2 of the rollout: score and log everything, change nothing."""
     store, log = fresh()
     raw = noisy_log()
     config = GateConfig(shadow_only=True)
@@ -167,7 +167,7 @@ def test_protected_kinds_survive_a_low_score() -> None:
 
 
 def test_admit_state_never_carries_more_than_the_batch_asks_about() -> None:
-    """The SPEC.md section 1.1 cost rule, checked end to end through admit()."""
+    """The cost rule -- state is billed, questions are not -- through admit()."""
     store, log = fresh()
     client = keep_noise_client()
     raw = noisy_log()
@@ -262,5 +262,5 @@ def test_expand_tool_schema_is_registrable() -> None:
 
 
 def test_admit_question_is_written_in_english() -> None:
-    # SPEC.md section 1: CJK is "supported but less reliable"; question text is ours to control.
+    # CJK is "supported but less reliable"; question text is ours to control.
     assert all(ord(ch) < 0x2000 for ch in ADMIT_QUESTION.instructions)

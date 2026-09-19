@@ -1,6 +1,6 @@
 """jevctx -- cache-preserving agent context compaction and memory, gated by Jev.
 
-See SPEC.md. The short version: context is ``[frozen prefix] + [work area]``, the
+The short version: context is ``[frozen prefix] + [work area]``, the
 prefix is append-only so the KV cache over it is never invalidated, and content the
 gate removes is relocated to a store behind an expandable pointer rather than
 deleted.

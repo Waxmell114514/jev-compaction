@@ -1,6 +1,6 @@
 """Shared contracts: constants, data model, protocols, exceptions.
 
-FROZEN CONTRACT -- do not edit. See SPEC.md section 2.
+One of the shared contracts the rest of the package is written against.
 
 If something here is wrong or missing, report it rather than editing it: every
 module in the package is written against this file in parallel.
@@ -36,7 +36,7 @@ __all__ = [
 ]
 
 # --------------------------------------------------------------------------- #
-# Hard limits of the Jev API. See SPEC.md section 1 -- these are not tunables.
+# Hard limits of the Jev API -- these are not tunables.
 # --------------------------------------------------------------------------- #
 
 MAX_QUESTIONS_PER_REQUEST = 32

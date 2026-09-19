@@ -1,4 +1,4 @@
-"""Tests for jevctx.budget.BudgetPlanner (SPEC.md section 4.2b, section 7.4).
+"""Tests for jevctx.budget.BudgetPlanner.
 
 No network: these tests only exercise pure packing logic over ``ScoreItem``s built by
 hand, never a ``JevClient``.
@@ -13,7 +13,7 @@ from jevctx.tokens import estimate_tokens
 from jevctx.types import ScoreItem
 
 # The same per-item JSON-wrapper cost BudgetPlanner accounts for internally, re-derived
-# here from the state shape SPEC.md section 4.3 documents (`{"ref": ..., "text": ...}`) --
+# here from the state shape scorer.build_state produces (`{"ref": ..., "text": ...}`) --
 # via the public, frozen `estimate_tokens`, not by importing BudgetPlanner's private
 # constant -- so these tests check the real invariant, not an implementation detail.
 _ITEM_WRAPPER_TOKENS = estimate_tokens({"ref": "i0", "text": ""})
@@ -107,7 +107,7 @@ def test_plan_is_deterministic() -> None:
 
 
 def test_plan_never_violates_caps_under_randomised_sizes() -> None:
-    """SPEC.md section 7.4: over randomised item-size distributions, plan() must never
+    """Over randomised item-size distributions, plan() must never
     emit a batch that violates the 32-question cap or either token budget; every item must
     appear exactly once, order must be preserved, and an item too large to fit alone must
     come back as an oversized single-item batch."""

@@ -1,4 +1,4 @@
-"""The frozen-prefix / work-area context buffer (SPEC.md section 3).
+"""The frozen-prefix / work-area context buffer.
 
 An agent's context is ``[frozen prefix] + [work area]``. The frozen prefix is
 append-only, and that is the entire trick: as long as the bytes of every message up
@@ -8,8 +8,8 @@ result the agent hasn't finished with, a draft it may revise, a question it hasn
 resolved -- lives in the work area instead, where it is free to be replaced or
 dropped because nothing downstream depends on its bytes staying put.
 
-``ContextBuffer`` enforces the one invariant that makes this useful (SPEC.md section
-3.3) at *runtime*, not just by construction: it remembers the messages it rendered
+``ContextBuffer`` enforces the one invariant that makes this useful at *runtime*,
+not just by construction: it remembers the messages it rendered
 for the frozen prefix last time, and both ``render()`` and ``commit()`` re-check that
 memo before returning. A cache-invalidating bug -- a bad slice, code that reaches into
 ``buffer.frozen`` and edits it directly, a future refactor that gets an index wrong --
@@ -63,12 +63,12 @@ __all__ = [
 class ContextBuffer:
     """``[frozen prefix] + [work area]``. See the module docstring for the model.
 
-    ``frozen`` and ``work`` are plain public lists, matching SPEC.md section 3.1
-    exactly, so callers can inspect them freely. They are not wrapped in an immutable
-    type because Python cannot make a list element truly unwritable without diverging
-    from that spec'd shape -- instead, tampering is *detected*: every ``render()`` and
-    ``commit()`` recomputes the frozen prefix's rendered messages and compares them
-    against the last-observed copy, raising ``FrozenPrefixError`` on any mismatch.
+    ``frozen`` and ``work`` are plain public lists, so callers can inspect them
+    freely. They are not wrapped in an immutable type because Python cannot make a
+    list element truly unwritable -- instead, tampering is *detected*: every
+    ``render()`` and ``commit()`` recomputes the frozen prefix's rendered messages and
+    compares them against the last-observed copy, raising ``FrozenPrefixError`` on any
+    mismatch.
     """
 
     def __init__(
@@ -84,7 +84,7 @@ class ContextBuffer:
             # frozen history is protected even before the first render() call.
             self._frozen_memo = self._render_frozen()
 
-    # -- operations table (SPEC.md section 3.2) ------------------------------ #
+    # -- operations ---------------------------------------------------------- #
 
     def append_work(self, block: Block) -> None:
         """Always allowed: the work area is freely mutable."""
@@ -150,7 +150,7 @@ class ContextBuffer:
             cache_breakpoint=self.cache_breakpoint,
         )
 
-    # -- the invariant (SPEC.md section 3.3) ---------------------------------- #
+    # -- the invariant -------------------------------------------------------- #
 
     def _render_frozen(
         self, blocks: Sequence[Block] | None = None
@@ -163,7 +163,7 @@ class ContextBuffer:
         if memo is not None and frozen_messages[: len(memo)] != memo:
             raise FrozenPrefixError(
                 "the frozen prefix changed between renders -- this would invalidate "
-                "the host LLM's KV cache and must never happen (SPEC.md section 3.3)"
+                "the host LLM's KV cache and must never happen"
             )
         self._frozen_memo = frozen_messages
 
@@ -182,8 +182,8 @@ def make_block(
     ``"b"``): the same role and text always produce the same id, mirroring how
     ``Segment.id`` is derived elsewhere in this package. ``turn``, if given, is stored
     as ``committed_at_turn`` -- it names the turn the block was *authored* on.
-    ``ContextBuffer.commit()`` has no ``turn`` parameter of its own (SPEC.md section
-    3.2 gives its exact signature), so it never overwrites this value; a caller that
+    ``ContextBuffer.commit()`` has no ``turn`` parameter of its own, so it never
+    overwrites this value; a caller that
     wants ``committed_at_turn`` to reflect the turn a block actually froze on should
     set ``turn=`` here right before calling ``commit()``.
     """
@@ -199,7 +199,7 @@ def make_block(
 
 
 # --------------------------------------------------------------------------- #
-# Commit policies (SPEC.md section 3.4)
+# Commit policies
 # --------------------------------------------------------------------------- #
 
 

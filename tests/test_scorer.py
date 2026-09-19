@@ -41,7 +41,7 @@ def items(n: int, *, size: int = 40, seed: int = 0) -> list[ScoreItem]:
 
 
 def test_state_holds_exactly_the_items_its_questions_ask_about() -> None:
-    """SPEC.md section 7.3, mechanising the section 1.1 cost rule."""
+    """Mechanises the cost rule: state is billed, questions are not."""
     client = FakeJevClient.constant(0.5)
     corpus = items(100)
     score_items(client, TASK, corpus, QUESTION)
@@ -138,7 +138,7 @@ def test_build_state_pairs_refs_with_items_positionally() -> None:
 
 
 def test_scoring_fails_open_so_an_outage_cannot_strip_context() -> None:
-    """SPEC.md section 7.5."""
+    """An outage must never silently strip an agent's context."""
     client = FakeJevClient.failing(JevUnavailableError("upstream down"))
     corpus = items(50)
 

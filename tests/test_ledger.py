@@ -11,7 +11,7 @@ from jevctx.types import CACHE_READ_MULT, CACHE_WRITE_MULT, PRICE_PER_INPUT_TOKE
 
 
 def test_breakeven_turns_reference_value() -> None:
-    """SPEC.md section 7.10."""
+    """The worked example: 100k down to 20k pays back in a little over three turns."""
     ledger = CacheLedger()
     assert ledger.breakeven_turns(100_000, 20_000) == pytest.approx(3.125)
 

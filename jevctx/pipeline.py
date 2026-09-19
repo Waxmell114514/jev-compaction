@@ -146,7 +146,7 @@ class GateConfig:
     max_elide_fraction: float = 0.7
     protected_kinds: frozenset[str] = frozenset({"stacktrace", "diff"})
     protected_floor: float = 0.05
-    #: Step 2 of the supported rollout (SPEC.md section 5): score and log everything,
+    #: Step 2 of the supported rollout: score and log everything,
     #: elide nothing. Not a debug flag.
     shadow_only: bool = False
     summary_max_chars: int = 120

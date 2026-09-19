@@ -1,7 +1,7 @@
 """Tests for jevctx.context: the frozen-prefix invariant and the commit policies.
 
 The property test (test_frozen_prefix_property) is the most important test in the
-package: SPEC.md section 3.3 is the entire point of ContextBuffer, and this is the
+package: the frozen-prefix invariant is the entire point of ContextBuffer, and this is the
 only test that actually drives an adversarial, randomised sequence against it.
 """
 
@@ -26,7 +26,7 @@ from jevctx.tokens import estimate_tokens
 from jevctx.types import Block, CommitDecision, CommitPolicy, FrozenPrefixError, TurnSignals
 
 # --------------------------------------------------------------------------- #
-# The property test (SPEC.md section 7.1)
+# The property test
 # --------------------------------------------------------------------------- #
 
 _ROLES = ("user", "assistant", "tool")
@@ -85,7 +85,7 @@ def _run_property_sequence(seed: int, steps: int) -> None:
         else:  # pragma: no cover - _OPS is exhaustive
             raise AssertionError(f"unhandled op {op!r}")
 
-        # The invariant (SPEC.md 3.3): the previously-observed frozen prefix must be
+        # The invariant: the previously-observed frozen prefix must be
         # a prefix of the new render, byte-identical, no matter which op just ran.
         rendered = buf.render()
         assert rendered[: len(observed_prefix)] == observed_prefix
@@ -129,7 +129,7 @@ def test_drop_everything_then_commit_is_a_no_op_on_frozen() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Operations table (SPEC.md section 3.2)
+# Operations
 # --------------------------------------------------------------------------- #
 
 
@@ -223,7 +223,7 @@ def test_stats_token_counts_agree_with_estimate_tokens_over_rendered_content() -
 
 
 # --------------------------------------------------------------------------- #
-# Commit policies (SPEC.md section 3.4)
+# Commit policies
 # --------------------------------------------------------------------------- #
 
 
