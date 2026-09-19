@@ -29,8 +29,6 @@ can quietly invent a detail, and now that invented detail is your agent's memory
 
 Three parts. Each one is simple on its own.
 
-三点，每一点单独看都很简单。
-
 ### 1. Filter at the door
 
 Split the context into two pieces: a **frozen part** at the front, and a **work area** at the
@@ -41,6 +39,12 @@ New tool output goes into the work area. Before it goes in, ask Jev whether it's
 keeping. Low-scoring parts never enter.
 
 ### 2. Move it out and don't delete it
+
+What the gate removes doesn't disappear. It goes into a store, and leaves one line behind:
+
+```
+[[elided id=r:8506e122 lines=1-21 tokens=364 "npm http fetch GET 200 https://registry..."]]
+```
 
 The agent gets an `expand` tool. If it needs what's behind that line, it asks for it and gets
 the **original text, byte for byte**. So a wrong decision costs one extra round trip — not
@@ -73,8 +77,8 @@ more tokens and costs three. Now you can choose.
 Start with the demo. It runs offline against a scripted stand-in, so you don't need a key:
 
 ```bash
-.venv/bin/python demo.py                  # six short acts / 六小节
-TYPESAFE_API_KEY=sk-... .venv/bin/python demo.py   # same code, real Jev / 同样的代码，真实的 Jev
+.venv/bin/python demo.py                            # six short acts
+TYPESAFE_API_KEY=sk-... .venv/bin/python demo.py    # same code, real Jev
 ```
 
 ### Connecting a real key
@@ -124,7 +128,7 @@ straight on is how you lose a week to "the agent got worse and nobody knows when
 
 ---
 
-## What's not built · 没做的部分
+## What's not built
 
 - Jev-driven commit points — asking "is this subtask finished?"
 - Multi-dimensional labelling — type, lifetime, entities, in one call of ~15 questions
