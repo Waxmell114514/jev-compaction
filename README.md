@@ -9,7 +9,10 @@ uv venv .venv && uv pip install --python .venv/bin/python -e '.[dev]'
 .venv/bin/python demo.py      # runs offline, no API key needed
 ```
 
-Or open [`docs/showcase.html`](docs/showcase.html) — the same tour as a web page, with a
+Or open [`docs/index.html`](docs/index.html) — an animation of the whole thing running:
+output arrives, Jev scores it, the low-value parts move out to a store.
+
+[`docs/showcase.html`](docs/showcase.html) has the numbers behind it, with a threshold
 slider you can drag.
 
 ---
