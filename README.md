@@ -2,18 +2,18 @@
 
 **Using [Jev](https://docs.typesafe.ai) to manage an agent's memory and keep its context small.**
 
+[![Tool output arrives, Jev scores every segment, the low-value parts move out to a store](docs/gate.gif)](docs/index.html)
+
+That's [`docs/index.html`](docs/index.html) — open it to drive it yourself.
+[`docs/showcase.html`](docs/showcase.html) has the numbers behind it, with a threshold
+slider you can drag.
+
 ```bash
 git clone https://github.com/Waxmell114514/awesome-jev-compaction
 cd awesome-jev-compaction
 uv venv .venv && uv pip install --python .venv/bin/python -e '.[dev]'
 .venv/bin/python demo.py      # runs offline, no API key needed
 ```
-
-Or open [`docs/index.html`](docs/index.html) — an animation of the whole thing running:
-output arrives, Jev scores it, the low-value parts move out to a store.
-
-[`docs/showcase.html`](docs/showcase.html) has the numbers behind it, with a threshold
-slider you can drag.
 
 ---
 
