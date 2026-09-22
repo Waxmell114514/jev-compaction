@@ -84,3 +84,41 @@ def test_the_animation_does_not_overclaim() -> None:
     page = ANIMATION.read_text()
     assert "scripted stand-in" in page
     assert "authored scenarios" in page
+
+
+def test_the_readme_headline_numbers_come_from_the_data() -> None:
+    """The first screen quotes numbers. Regenerating DATA must not leave it lying.
+
+    Every figure in the README's opening paragraph is derived here from the same
+    DATA the showcase renders, so a rebuild that moves a number fails loudly
+    instead of turning the landing page into a false advertisement. Matching is
+    done against the README with its line breaks flattened, because a phrase
+    that straddles a wrap is still a phrase the reader sees.
+    """
+    data = embedded()
+    readme = " ".join((ROOT / "README.md").read_text().split())
+
+    gate = data["gate"]
+    original, result = gate["originalTokens"], gate["resultTokens"]
+    shrink = round((original - result) / original * 100)
+    cost = original * data["cost"]["pricePerToken"]
+
+    # At 0.10 nothing the agent later came back for would have been moved out.
+    below = [d for d in data["log"]["decisions"] if d["score"] < 0.10]
+    saved = sum(d["tokens"] for d in below)
+    assert not any(d["expanded"] for d in below), (
+        "the README claims nothing below 0.10 was ever expanded"
+    )
+    # ...which is only interesting because the shipped threshold does worse.
+    assert data["log"]["liveFalseNegativeRate"] == 0.5, (
+        "the README says half the elided segments got expanded again"
+    )
+
+    for claim in (
+        f"**{original} to {result} tokens**",
+        f"{shrink}% smaller",
+        f"**${cost:.6f}**",
+        f"**{saved:,} tokens",
+        f"the {data['log']['liveThreshold']} the demo ships with",
+    ):
+        assert claim in readme, f"README no longer says {claim!r}"

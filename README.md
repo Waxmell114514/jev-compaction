@@ -1,16 +1,23 @@
-# awesome-jev-compaction
+# jev-compaction
 
-**Using [Jev](https://docs.typesafe.ai) to manage an agent's memory and keep its context small.**
+**A context compactor that can only score, never write — so an agent's memory can't hold a
+fact the transcript never contained.**
 
-[![Tool output arrives, Jev scores every segment, the low-value parts move out to a store](docs/gate.gif)](docs/index.html)
+**[▶ Live demo](https://waxmell114514.github.io/jev-compaction/)** — runs in your browser, offline, no key.
+([The numbers behind it](https://waxmell114514.github.io/jev-compaction/showcase.html), with a draggable threshold slider.)
 
-That's [`docs/index.html`](docs/index.html) — open it to drive it yourself.
-[`docs/showcase.html`](docs/showcase.html) has the numbers behind it, with a threshold
-slider you can drag.
+[![Tool output arrives, Jev scores every segment, the low-value parts move out to a store](docs/gate.gif)](https://waxmell114514.github.io/jev-compaction/)
+
+In the demo run, one `npm install` buffer goes from **749 to 391 tokens** — 48% smaller —
+with every kept line byte-for-byte original and the append-only prefix never invalidating the
+prompt cache. The whole scoring pass costs **$0.000031**. Replaying the shadow log at
+threshold 0.10 saves **1,092 tokens and misses nothing the agent ever came back for**; at the
+0.35 the demo ships with, half the elided segments got expanded again — the log telling you
+its own default is too aggressive for this workload.
 
 ```bash
-git clone https://github.com/Waxmell114514/awesome-jev-compaction
-cd awesome-jev-compaction
+git clone https://github.com/Waxmell114514/jev-compaction
+cd jev-compaction
 uv venv .venv && uv pip install --python .venv/bin/python -e '.[dev]'
 .venv/bin/python demo.py      # runs offline, no API key needed
 ```
@@ -26,11 +33,26 @@ Two things go wrong. First, rewriting the middle of the context **breaks the pro
 so every later turn pays full price again. Second, a summary is *generated* text — the model
 can quietly invent a detail, and now that invented detail is your agent's memory.
 
+Three ways to make a context smaller, and what each one costs you:
+
+| | can invent facts? | recoverable? | prompt cache survives? |
+|---|---|---|---|
+| LLM summarisation | **Yes** — the summary is generated text | No — the original is gone | No — the middle gets rewritten |
+| Delete-based pruning | No | No — deleted is deleted | No — dropping old turns rewrites the prefix |
+| **This repo** | No — kept lines are the verbatim originals | **Yes** — `expand()` returns the bytes | **Yes** — the prefix only ever grows |
+
 ---
 
 ## Our idea
 
 Three parts. Each one is simple on its own.
+
+```
+tool output ──► Jev scores each segment (all of them, one request)
+                  ├─ high ──► frozen prefix   (append-only → cache never breaks)
+                  └─ low  ──► store, pointer left behind
+                                 └─ agent calls expand() ──► original bytes back
+```
 
 ### 1. Filter at the door
 
