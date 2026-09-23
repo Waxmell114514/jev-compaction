@@ -13,16 +13,21 @@ information, and the prefix still only ever grows.
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from jevctx.jev import HttpJevClient
+from jevctx.label import ENTITY_QUESTIONS, LIFETIME_QUESTION, TYPE_QUESTION
 from jevctx.scorer import score_items
 from jevctx.segments import segment
 from jevctx.shadow import ShadowLog
 from jevctx.tokens import estimate_tokens
 from jevctx.types import (
+    DigestEntry,
+    JevBudgetError,
     JevClient,
     MemoryStore,
     Noul,
@@ -36,7 +41,7 @@ from jevctx.types import (
 )
 
 __all__ = [
-    "GateConfig", "DEFAULT_GATE_CONFIG", "AdmitResult", "admit", "retrieve", "expand", "reconstruct",
+    "GateConfig", "DEFAULT_GATE_CONFIG", "AdmitResult", "admit", "retrieve", "render_records", "expand", "reconstruct",
     "format_pointer", "parse_pointer", "find_pointers",
     "ADMIT_QUESTION", "RETRIEVE_QUESTION", "EXPAND_TOOL_SCHEMA",
 ]
@@ -298,34 +303,107 @@ def admit(
 # --------------------------------------------------------------------------- #
 
 
+def render_records(records: Sequence[Record]) -> str:
+    """Exact model-facing payload, including metadata, for retrieval budgeting."""
+    return json.dumps([
+        {"id": r.id, "origin": r.origin.to_dict(), "lifecycle": r.lifecycle,
+         "label": r.meta.get("label"), "text": r.text}
+        for r in records
+    ], ensure_ascii=False)
+
+
 def retrieve(
     task_digest: str,
     *,
     turn: int,
-    client: JevClient,
+    client: JevClient | None,
     store: MemoryStore,
     log: ShadowLog,
     k: int = 5,
     budget_tokens: int = 24_000,
     threshold: float = 0.5,
     max_workers: int = 8,
+    result_budget_tokens: int = 4000,
+    content_type: str | None = None,
+    lifecycle: str | None = None,
+    entity: str | None = None,
+    shadow_only: bool = False,
+    usage: dict | None = None,
 ) -> list[Record]:
-    """Score the store's digest against the current task and return the top k records.
-
-    The budget exists because the digest becomes a Jev ``state``, and Jev caps
-    state at 32k tokens. Callers put the results in the **work area**, never in
-    the frozen prefix.
-    """
-    entries = store.digest(budget_tokens=budget_tokens)
+    """Merge lexical/recent candidates, filter, rerank and budget whole records."""
+    if not isinstance(task_digest, str) or not task_digest.strip():
+        raise ValueError("query must be nonempty")
+    if type(k) is not int or not 1 <= k <= 10:
+        raise ValueError("k must be between 1 and 10")
+    if type(result_budget_tokens) is not int or not 128 <= result_budget_tokens <= 16000:
+        raise ValueError("result budget must be between 128 and 16000")
+    for value, choices in ((content_type, TYPE_QUESTION.criteria),
+                           (lifecycle, LIFETIME_QUESTION.criteria),
+                           (entity, ENTITY_QUESTIONS)):
+        if value is not None and value not in choices:
+            raise ValueError("invalid label filter")
+    candidates = store.search(task_digest, limit=50)
+    candidates += [store.get(e.id) for e in store.digest(budget_tokens=budget_tokens)[:50]]
+    by_record = {}
+    entries = []
+    spent = 0
+    for record in candidates:
+        if record is None:
+            continue
+        # An elided fragment links to its full output; legacy fragments still work.
+        record = store.get(record.meta.get("full_output_id", "")) or record
+        if record.id in by_record:
+            continue
+        label = record.meta.get("label", {})
+        if content_type is not None and label.get("type") != content_type:
+            continue
+        if lifecycle is not None and record.lifecycle != lifecycle:
+            continue
+        if entity is not None and label.get("entities", {}).get(entity, 0) < 0.5:
+            continue
+        entry = DigestEntry(id=record.id, summary=record.summary, kind=record.kind,
+                            tokens=record.tokens, created_turn=record.created_turn)
+        cost = estimate_tokens({"ref": entry.id, "text": entry.summary})
+        if spent + cost > budget_tokens:
+            continue
+        spent += cost
+        entries.append(entry)
+        by_record[record.id] = record
     if not entries:
         return []
 
-    items = [e.to_score_item() for e in entries]
-    results = score_items(client, task_digest, items, RETRIEVE_QUESTION,
-                          max_workers=max_workers)
+    items = [ScoreItem(id=e.id, text=e.summary, tokens=estimate_tokens(e.summary)) for e in entries]
+
+    def score(active_client):
+        results = score_items(active_client, task_digest, items, RETRIEVE_QUESTION,
+                              max_workers=max_workers, on_error="raise")
+        if any(result.failed for result in results):
+            raise JevBudgetError("retrieval summaries or query exceed scoring budget")
+        if usage is not None:
+            meter = getattr(active_client, "usage", None)
+            usage.update({key: getattr(meter, key, None)
+                          for key in ("input_tokens", "output_tokens", "requests")})
+        return results
+
+    if client is None:
+        with HttpJevClient() as live:
+            results = score(live)
+    else:
+        results = score(client)
     ranked = sorted(results, key=lambda r: r.score, reverse=True)
-    chosen_ids = [r.item_id for r in ranked if r.score >= threshold][:k]
-    chosen = set(chosen_ids)
+    selected = []
+    seen_text = set()
+    for result in ranked:
+        record = by_record[result.item_id]
+        if result.score < threshold or record.text in seen_text:
+            continue
+        if estimate_tokens(render_records([*selected, record])) > result_budget_tokens:
+            continue
+        selected.append(record)
+        seen_text.add(record.text)
+        if len(selected) == k:
+            break
+    chosen = {r.id for r in selected} if not shadow_only else set()
 
     by_id = {e.id: e for e in entries}
     for result in results:
@@ -338,8 +416,7 @@ def retrieve(
             text=entry.summary, turn=turn,
         )
 
-    records = [store.get(record_id) for record_id in chosen_ids]
-    return [r for r in records if r is not None]
+    return selected
 
 
 def expand(record_id: str, *, store: MemoryStore, log: ShadowLog, turn: int) -> str:

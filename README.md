@@ -106,6 +106,7 @@ Then read these, in this order
 |---|---|
 | [`demo.py`](demo.py) | The tour. Start here. |
 | `jevctx/pipeline.py` | `admit()` / `retrieve()` / `expand()` — the ~200 lines that matter |
+| `jevctx/label.py` | Type, lifetime and entity labels for stored records, batched like the scorer |
 | `jevctx/scorer.py` | How 32 questions get packed into one request |
 | `jevctx/context.py` | The frozen-prefix buffer |
 | `jevctx/segments.py` | Splitting output without breaking it |
@@ -131,9 +132,68 @@ straight on is how you lose a week to "the agent got worse and nobody knows when
 
 ---
 
+## Run a real OpenAI-compatible model
+
+`run_agent.py` connects the gate to a Chat Completions tool loop, including
+OpenCode endpoints that implement that protocol. It uses the existing `httpx`
+dependency. Configure your endpoint and model; neither is hardcoded:
+
+```powershell
+$env:OPENAI_BASE_URL = "https://YOUR-ENDPOINT/v1"
+$env:OPENAI_MODEL = "YOUR-MODEL"
+$env:OPENAI_API_KEY = "YOUR-KEY"
+$env:TYPESAFE_API_KEY = "YOUR-JEV-KEY"  # only shadow/on require this
+
+python -X utf8 run_agent.py "Find the dependency conflict in the log" --file tests/fixtures/npm_install.log --mode off --output runs/baseline
+python -X utf8 run_agent.py "Find the dependency conflict in the log" --file tests/fixtures/npm_install.log --mode shadow --output runs/shadow
+python -X utf8 run_agent.py "Find the dependency conflict in the log" --file tests/fixtures/npm_install.log --mode on --output runs/gated
+```
+
+The endpoint must accept `/chat/completions`, function tools and
+`max_completion_tokens`. Environment variables are read from the process; `.env`
+files are not loaded automatically. Only files explicitly passed with `--file`
+are available to the model (UTF-8, up to 1 MB each). File contents can be sent to
+the configured model and, in shadow/on modes, to Jev. There is no shell or write
+tool. For application-defined tools, call `jevctx.agent.run_agent` with matching
+function schemas and Python handlers; handlers own validation and permissions.
+
+- `off`: original tool results, no Jev calls.
+- `shadow` (default): score and log, but send original tool results.
+- `on`: filter tool results and let the model recover originals with `expand`.
+
+Each run requires a **new** output directory. `run.json` contains the transcript,
+completion status, elapsed time, tool/expand counts and provider-reported usage.
+`shadow.jsonl` stores decisions; `memory.jsonl` stores relocated original text
+when needed. These files contain task data; `runs/` is gitignored. Runs do not
+resume existing sessions or rebuild an overflowing context window yet.
+
+Costs are unknown (`null`) unless prices are supplied. Use
+`--prices INPUT OUTPUT CACHE_READ CACHE_WRITE` and `--jev-input-price PRICE`,
+all in USD per million tokens. Token usage comes from API responses, while
+`estimated_tool_tokens_saved` is only the local text-size estimate. Standard
+Chat Completions reports cached reads inside `prompt_tokens`; the runner
+subtracts them before pricing ordinary input. The standard protocol has no
+separate cache-write count, so those tokens stay in ordinary input. Providers
+with extra cache-write charges need a provider-specific usage adapter before
+the cost estimate is authoritative. The prices should reflect your endpoint's
+actual rates; totals are estimates, not invoices. Missing host usage also makes
+cost unknown. Usage reported before a failed run is retained, but an unsuccessful
+request may have incurred additional unreported charges.
+
+The runner keeps complete assistant/tool messages and their call IDs under
+`ContextBuffer`'s frozen-prefix invariant. Prefix stability does not guarantee a
+provider cache hit; inspect reported cached tokens. `completed` means the model
+stopped normally, **not** that the task answer is correct. Compare answers or
+external checks as well as costs; repeated runs need not take identical paths.
+The offline test suite checks the protocol and recovery with mock transports;
+live endpoint compatibility and task quality still require your configuration.
+
+`CacheLedger` remains a render-cost simulator. Its USD estimate now defaults to
+`None` until a host `price_per_input_token` is supplied; it no longer borrows
+Jev's price. Actual runs use separate host and Jev accounting.
+
 ## What's not built
 
 - Jev-driven commit points — asking "is this subtask finished?"
-- Multi-dimensional labelling — type, lifetime, entities, in one call of ~15 questions
 - Supersession chains — does this new record replace that old one?
 - Bayesian threshold calibration — combine Jev's score with observed hit counts
