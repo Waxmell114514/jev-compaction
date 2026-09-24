@@ -4,6 +4,8 @@
 write it, so everything the agent sees is original, and anything moved out can be
 brought back byte for byte.**
 
+![python demo.py: admission, injection quarantine, expand and recall, supersession, the work area](docs/demo.gif)
+
 **[▶ How it works, and what it did on SWE-bench](https://waxmell114514.github.io/jev-compaction/)**,
 or run the tour locally with no API key:
 

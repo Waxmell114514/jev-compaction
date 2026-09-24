@@ -76,7 +76,7 @@ from jevctx.types import (
 )
 from jevctx.workarea import TailItem, WorkArea, WorkAreaConfig, compaction_pays
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "ADMIT_QUESTION", "DEFAULT_COMMIT_POLICY", "DEFAULT_GATE_CONFIG", "INJECTION_QUESTION",

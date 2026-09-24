@@ -1,0 +1,24 @@
+# Push an annotated tag vX.Y.Z; its message becomes the release notes.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+      - run: >
+          gh release create "$GITHUB_REF_NAME" docs/demo.gif
+          --verify-tag --notes-from-tag
+          --title "$(git tag -l --format='%(contents:subject)' "$GITHUB_REF_NAME")"
+        env:
+          GH_TOKEN: ${{ github.token }}
