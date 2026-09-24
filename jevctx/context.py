@@ -207,7 +207,7 @@ def advance_prefix(previous: dict, hashes: Sequence[str], *, reason: str | None 
     """
     old = previous.get("hashes", [])
     common = 0
-    for before, after in zip(old, hashes):
+    for before, after in zip(old, hashes, strict=False):
         if before != after:
             break
         common += 1

@@ -29,7 +29,7 @@ __all__ = [
     # protocols
     "JevClient", "MemoryStore", "CommitPolicy",
     # errors
-    "JevError", "JevAuthError", "JevValidationError", "JevBudgetError",
+    "JevError", "JevAuthError", "JevValidationError", "JevRejectedError", "JevBudgetError",
     "JevUnavailableError", "FrozenPrefixError",
     # helpers
     "content_id",
@@ -404,6 +404,15 @@ class JevAuthError(JevError):
 
 class JevValidationError(JevError):
     """422 -- the request is malformed. Never retried; it is a bug."""
+
+
+class JevRejectedError(JevValidationError):
+    """403 -- the service refused to read the request's content.
+
+    Seen from TypeSafe's edge firewall on content that looks like an attack
+    (``cat /etc/passwd``, SQL injection strings). Retrying the same content is
+    pointless; which item tripped it can only be found by asking about fewer.
+    """
 
 
 class JevBudgetError(JevError):
