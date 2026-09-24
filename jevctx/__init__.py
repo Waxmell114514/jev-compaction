@@ -7,6 +7,7 @@ deleted.
 """
 
 from jevctx.budget import Batch, BudgetPlanner
+from jevctx.calibrate import fit_thresholds
 from jevctx.check import run_check
 from jevctx.context import (
     DEFAULT_COMMIT_POLICY,
@@ -20,6 +21,15 @@ from jevctx.context import (
     make_block,
 )
 from jevctx.jev import HttpJevClient, RateLimiter, RetryPolicy
+from jevctx.label import (
+    ENTITY_QUESTIONS,
+    LIFETIME_QUESTION,
+    TYPE_QUESTION,
+    ItemLabel,
+    apply_label,
+    label_items,
+    label_records,
+)
 from jevctx.ledger import CacheLedger, CostBreakdown
 from jevctx.pipeline import (
     ADMIT_QUESTION,
@@ -37,10 +47,13 @@ from jevctx.pipeline import (
     reconstruct,
     retrieve,
 )
+from jevctx.profile import INJECTION_QUESTION, ROLE_QUESTION, Profile, profile_items
+from jevctx.recall import RecallHit, recall, render_hits
 from jevctx.scorer import build_state, score_items, score_map
 from jevctx.segments import detect_kind, segment
 from jevctx.shadow import ShadowLog, ShadowStats
 from jevctx.store import InMemoryStore, JsonlStore
+from jevctx.supersede import Relation, SupersessionIndex, footprints, note_for
 from jevctx.testing import FakeJevClient
 from jevctx.tokens import estimate_tokens
 from jevctx.types import (
@@ -61,20 +74,26 @@ from jevctx.types import (
     Segment,
     TurnSignals,
 )
+from jevctx.workarea import TailItem, WorkArea, WorkAreaConfig, compaction_pays
 
 __version__ = "0.1.0"
 
 __all__ = [
-    "ADMIT_QUESTION", "DEFAULT_COMMIT_POLICY", "DEFAULT_GATE_CONFIG",
-    "EXPAND_TOOL_SCHEMA", "RETRIEVE_QUESTION",
+    "ADMIT_QUESTION", "DEFAULT_COMMIT_POLICY", "DEFAULT_GATE_CONFIG", "INJECTION_QUESTION",
+    "ROLE_QUESTION", "Profile", "RecallHit", "Relation", "SupersessionIndex", "TailItem",
+    "WorkArea", "WorkAreaConfig", "compaction_pays", "fit_thresholds", "footprints",
+    "note_for", "profile_items", "recall", "render_hits",
+    "ENTITY_QUESTIONS", "EXPAND_TOOL_SCHEMA", "LIFETIME_QUESTION",
+    "RETRIEVE_QUESTION", "TYPE_QUESTION",
     "AdmitResult", "AllOf", "AnyOf", "Batch", "Block", "BudgetPlanner", "CacheLedger",
     "Choice", "CommitPolicy", "ContextBuffer", "CostBreakdown", "DigestEntry",
-    "FakeJevClient", "GateConfig", "HttpJevClient", "InMemoryStore", "JevClient",
-    "JevError", "JsonlStore", "MemoryStore", "NeverCommit", "Noul", "Origin",
-    "Pointer", "RateLimiter", "Record", "RetryPolicy", "Score", "ScoreItem",
+    "FakeJevClient", "GateConfig", "HttpJevClient", "InMemoryStore", "ItemLabel",
+    "JevClient", "JevError", "JsonlStore", "MemoryStore", "NeverCommit", "Noul",
+    "Origin", "Pointer", "RateLimiter", "Record", "RetryPolicy", "Score", "ScoreItem",
     "ScoreResult", "Segment", "ShadowLog", "ShadowStats", "ToolDepthZero",
     "TurnCount", "TurnSignals", "WorkAreaTokens",
-    "admit", "build_state", "run_check", "detect_kind", "estimate_tokens", "expand",
-    "find_pointers", "format_pointer", "make_block", "mark_hits", "parse_pointer",
-    "reconstruct", "retrieve", "score_items", "score_map", "segment",
+    "admit", "apply_label", "build_state", "run_check", "detect_kind", "estimate_tokens",
+    "expand", "find_pointers", "format_pointer", "label_items", "label_records",
+    "make_block", "mark_hits", "parse_pointer", "reconstruct", "retrieve",
+    "score_items", "score_map", "segment",
 ]

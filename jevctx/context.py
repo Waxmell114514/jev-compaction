@@ -49,6 +49,7 @@ from jevctx.types import (
 
 __all__ = [
     "ContextBuffer",
+    "advance_prefix",
     "make_block",
     "ToolDepthZero",
     "WorkAreaTokens",
@@ -196,6 +197,38 @@ def make_block(
         committed_at_turn=turn,
         meta=dict(meta) if meta is not None else {},
     )
+
+
+def advance_prefix(previous: dict, hashes: Sequence[str], *, reason: str | None = None) -> dict:
+    """Commit an observed transcript fingerprint, starting an epoch on invalidation.
+
+    Hashes describe Pi messages, not provider cache entries. Never reconstruct or
+    replace actual conversation messages from this bookkeeping state.
+    """
+    old = previous.get("hashes", [])
+    common = 0
+    for before, after in zip(old, hashes, strict=False):
+        if before != after:
+            break
+        common += 1
+    buffer = ContextBuffer(frozen=[make_block("message", value) for value in old])
+    buffer.frozen = [make_block("message", value) for value in hashes[:len(old)]]
+    changed = False
+    try:
+        buffer.render()
+    except FrozenPrefixError:
+        changed = True
+    reset = bool(reason) or changed or not previous
+    if reset:
+        buffer = ContextBuffer()
+    start = buffer.cache_breakpoint
+    for value in hashes[start:]:
+        buffer.append_work(make_block("message", value))
+    buffer.commit(reason=reason or "request")
+    return {"hashes": list(hashes), "epoch": previous.get("epoch", 0) + int(reset),
+            "common_prefix": common, "messages": buffer.cache_breakpoint,
+            "reason": reason or ("prefix_changed" if changed else "initial" if not previous else "append"),
+            "reset": reset}
 
 
 # --------------------------------------------------------------------------- #

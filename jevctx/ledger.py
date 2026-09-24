@@ -30,7 +30,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from jevctx.types import CACHE_READ_MULT, CACHE_WRITE_MULT, PRICE_PER_INPUT_TOKEN
+from jevctx.types import CACHE_READ_MULT, CACHE_WRITE_MULT
 
 __all__ = ["CostBreakdown", "CacheLedger"]
 
@@ -42,7 +42,7 @@ class CostBreakdown:
     cache_write_tokens: int
     cache_read_tokens: int
     uncached_tokens: int
-    usd: float
+    usd: float | None
 
 
 @dataclass(frozen=True)
@@ -58,11 +58,10 @@ class _RenderRecord:
 class CacheLedger:
     """Accounts for the cache read/write cost of rendering a ``ContextBuffer`` over time.
 
-    See the module docstring for the break-even derivation. ``cache_read_mult``,
-    ``cache_write_mult`` and ``price_per_input_token`` default to the constants in
-    ``types.py`` but are always taken as constructor arguments, never hardcoded at a
-    call site, so a different host LLM's pricing can be plugged in without editing
-    this module.
+    This is a simulator, not provider usage accounting. Cache multipliers default
+    to the constants in ``types.py``. The host input price must be supplied
+    explicitly; otherwise ``estimated_cost().usd`` is None. Jev's input price is
+    not a valid default for the host model. Real runs use ``usage.ModelUsage``.
     """
 
     def __init__(
@@ -70,7 +69,7 @@ class CacheLedger:
         *,
         cache_read_mult: float = CACHE_READ_MULT,
         cache_write_mult: float = CACHE_WRITE_MULT,
-        price_per_input_token: float = PRICE_PER_INPUT_TOKEN,
+        price_per_input_token: float | None = None,
     ) -> None:
         self._cache_read_mult = cache_read_mult
         self._cache_write_mult = cache_write_mult
@@ -118,7 +117,7 @@ class CacheLedger:
         cache_write_tokens = sum(r.frozen_tokens for r in self._records if r.cache_written)
         cache_read_tokens = sum(r.frozen_tokens for r in self._records if not r.cache_written)
         uncached_tokens = sum(r.work_tokens for r in self._records)
-        usd = (
+        usd = None if self._price_per_input_token is None else (
             cache_write_tokens * self._cache_write_mult
             + cache_read_tokens * self._cache_read_mult
             + uncached_tokens * 1.0

@@ -30,7 +30,7 @@ __all__ = ["ShadowLog", "ShadowStats", "PREVIEW_CHARS"]
 
 PREVIEW_CHARS = 200
 
-DecisionKind = Literal["admit", "retrieve"]
+DecisionKind = Literal["admit", "retrieve", "compact"]
 Action = Literal["kept", "elided", "injected", "skipped"]
 OutcomeKind = Literal["expand", "hit"]
 
@@ -68,6 +68,8 @@ class _Entry:
     origin: dict[str, Any] = field(default_factory=dict)
     text_sha256: str = ""
     text_preview: str = ""
+    #: Per-item metadata the decision was made with (segment kind, Jev labels).
+    labels: dict[str, Any] = field(default_factory=dict)
 
     def to_json(self) -> str:
         return json.dumps(self.__dict__, ensure_ascii=False)
@@ -97,12 +99,13 @@ class ShadowLog:
         origin: Origin,
         text: str,
         turn: int,
+        labels: dict[str, Any] | None = None,
     ) -> None:
         entry = _Entry(
             type="decision", turn=turn, item_id=item_id, kind=kind, score=score,
             threshold=threshold, action=action, tokens=tokens, origin=origin.to_dict(),
             text_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
-            text_preview=text[:PREVIEW_CHARS],
+            text_preview=text[:PREVIEW_CHARS], labels=dict(labels or {}),
         )
         self._append(entry)
 

@@ -63,7 +63,7 @@ def test_breakeven_uses_constructor_multipliers_not_hardcoded_defaults() -> None
 
 
 def test_estimated_cost_accounting_across_scripted_renders() -> None:
-    ledger = CacheLedger()
+    ledger = CacheLedger(price_per_input_token=PRICE_PER_INPUT_TOKEN)
     ledger.record_render(turn=1, frozen_tokens=1000, work_tokens=200, cache_written=True)
     ledger.record_render(turn=2, frozen_tokens=1000, work_tokens=150, cache_written=False)
     ledger.record_render(turn=3, frozen_tokens=1000, work_tokens=300, cache_written=False)
@@ -86,7 +86,7 @@ def test_estimated_cost_accounting_across_scripted_renders() -> None:
 
 
 def test_estimated_cost_with_no_renders_is_all_zero() -> None:
-    ledger = CacheLedger()
+    ledger = CacheLedger(price_per_input_token=PRICE_PER_INPUT_TOKEN)
     cost = ledger.estimated_cost()
     assert cost == CostBreakdown(
         cache_write_tokens=0, cache_read_tokens=0, uncached_tokens=0, usd=0.0
@@ -98,3 +98,9 @@ def test_estimated_cost_uses_custom_price_per_input_token() -> None:
     ledger.record_render(turn=1, frozen_tokens=100, work_tokens=0, cache_written=True)
     cost = ledger.estimated_cost()
     assert cost.usd == pytest.approx(100 * CACHE_WRITE_MULT * 1.0)
+
+
+def test_host_price_is_unknown_until_explicitly_configured() -> None:
+    ledger = CacheLedger()
+    ledger.record_render(turn=1, frozen_tokens=100, work_tokens=20, cache_written=True)
+    assert ledger.estimated_cost().usd is None

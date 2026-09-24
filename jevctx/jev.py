@@ -49,6 +49,7 @@ from jevctx.types import (
     Choice,
     JevAuthError,
     JevBudgetError,
+    JevRejectedError,
     JevUnavailableError,
     JevValidationError,
     Question,
@@ -375,6 +376,9 @@ class HttpJevClient:
                     raise JevAuthError(_error_detail(response))
                 if response.status_code == 422:
                     raise JevValidationError(_error_detail(response))
+                if response.status_code == 403:
+                    # An edge firewall's HTML page, not a Jev answer; keep it out of logs.
+                    raise JevRejectedError("Jev returned 403: request content refused")
                 if response.status_code == 429 or response.status_code >= 500:
                     last_error = JevUnavailableError(
                         f"Jev returned {response.status_code}: {_error_detail(response)}"
