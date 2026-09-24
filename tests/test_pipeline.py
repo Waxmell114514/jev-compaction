@@ -264,3 +264,16 @@ def test_expand_tool_schema_is_registrable() -> None:
 def test_admit_question_is_written_in_english() -> None:
     # CJK is "supported but less reliable"; question text is ours to control.
     assert all(ord(ch) < 0x2000 for ch in ADMIT_QUESTION.instructions)
+
+
+def test_a_run_shorter_than_its_pointer_stays_as_text():
+    # A short low-scoring line between two kept stanzas: a pointer would be longer.
+    kept = "\n".join(f"IMPORTANT finding {i}: the peer dependency conflict" for i in range(30))
+    text = f"{kept}\n\nok\n\n{kept}\n\n" + "\n".join(f"noise line {i}" for i in range(200)) + "\n"
+    store, log = InMemoryStore(), ShadowLog()
+    result = admit(text, Origin(source="tool:bash", ref="c1", turn=1), task_digest="t", turn=1,
+                   client=keep_noise_client(), store=store, log=log,
+                   config=GateConfig(max_elide_fraction=1.0))
+    assert "\nok\n" in result.text                 # the one-word stanza is still there
+    assert len(result.pointers) == 1              # only the long noise run became a pointer
+    assert reconstruct(result.text, store) == text

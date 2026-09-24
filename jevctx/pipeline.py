@@ -352,20 +352,26 @@ def admit(
                            "data if expanded")
             else:
                 summary = f"{profile['role']}, {profile['type']}: {summary}"
+        tokens = sum(s.tokens for s in run)
+        lines = (run[0].line_span[0], run[-1].line_span[1]) \
+            if run[0].line_span and run[-1].line_span else None
+        # A pointer no shorter than what it stands for saves nothing: keep the text
+        # (a blank line between stanzas, say). A quarantine is withheld regardless.
+        if not run_quarantined and estimate_tokens(format_pointer(Pointer(
+                id="r:00000000", lines=lines, tokens=tokens, summary=summary))) >= tokens:
+            parts.append(text)
+            kept.extend(run)
+            run.clear()
+            return
         record = Record(
             id=content_id(text, salt=origin.ref or "", prefix="r"),
             text=text, kind="elided_segment", origin=origin,
-            tokens=sum(s.tokens for s in run), created_turn=turn,
+            tokens=tokens, created_turn=turn,
             summary=summary, meta=meta,
         )
         record_id = store.put(record)
-        pointer = Pointer(
-            id=record_id,
-            lines=(run[0].line_span[0], run[-1].line_span[1])
-            if run[0].line_span and run[-1].line_span else None,
-            tokens=record.tokens,
-            summary=record.summary,
-        )
+        pointer = Pointer(id=record_id, lines=lines, tokens=record.tokens,
+                          summary=record.summary)
         pointers.append(pointer)
         parts.append(format_pointer(pointer) + "\n")
         run.clear()
