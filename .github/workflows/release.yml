@@ -2,6 +2,8 @@
 # - push an annotated tag vX.Y.Z; its message becomes the release notes;
 # - run this workflow by hand with a tag name; it tags the commit it runs on and
 #   takes the notes from .github/releases/<tag>.md (first line is the title).
+#   Run by hand for a release that already exists, it updates the title, notes
+#   and assets instead.
 name: release
 
 on:
@@ -10,11 +12,14 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to create, e.g. v0.2.0"
+        description: "Tag to create or update, e.g. v0.2.0"
         required: true
 
 permissions:
   contents: write
+
+env:
+  ASSETS: docs/tour.gif
 
 jobs:
   release:
@@ -29,10 +34,18 @@ jobs:
         run: |
           notes=".github/releases/$TAG.md"
           if [ -f "$notes" ]; then
-            gh release create "$TAG" docs/tour.gif --target "$GITHUB_SHA" \
-              --title "$(head -n 1 "$notes")" --notes "$(tail -n +3 "$notes")"
+            title="$(head -n 1 "$notes")"; body="$(tail -n +3 "$notes")"
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              gh release edit "$TAG" --title "$title" --notes "$body"
+              for name in $(gh release view "$TAG" --json assets -q '.assets[].name'); do
+                case " $ASSETS " in *"/$name "*) ;; *) gh release delete-asset "$TAG" "$name" -y ;; esac
+              done
+              gh release upload "$TAG" $ASSETS --clobber
+            else
+              gh release create "$TAG" $ASSETS --target "$GITHUB_SHA" --title "$title" --notes "$body"
+            fi
           else
             git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
-            gh release create "$TAG" docs/tour.gif --verify-tag --notes-from-tag \
+            gh release create "$TAG" $ASSETS --verify-tag --notes-from-tag \
               --title "$(git tag -l --format='%(contents:subject)' "$TAG")"
           fi
