@@ -13,9 +13,11 @@ import httpx
 
 from jevctx.agent import run_agent
 from jevctx.jev import HttpJevClient
+from jevctx.pipeline import GateConfig
 from jevctx.shadow import ShadowLog
 from jevctx.store import JsonlStore
 from jevctx.usage import Prices
+from jevctx.workarea import WorkAreaConfig
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -34,6 +36,15 @@ def main(argv: list[str] | None = None) -> int:
                         help="USD per million tokens; omitted means unknown cost")
     parser.add_argument("--jev-input-price", type=float,
                         help="Jev USD per million input tokens; omitted means unknown cost")
+    parser.add_argument("--profile", action="store_true",
+                        help="Label every segment's type, role, lifetime and injection risk")
+    parser.add_argument("--gate-on", default="keep",
+                        help='"keep" or "role:<name>", e.g. role:change_site (needs --profile)')
+    parser.add_argument("--thresholds", type=Path,
+                        help="JSON from `python -m jevctx.calibrate --out`")
+    parser.add_argument("--workarea", action="store_true",
+                        help="Compact the transcript's tail before each request when it pays "
+                             "(priced with --prices, else $3 input / $0.30 cache read)")
     args = parser.parse_args(argv)
     key = os.environ.get("OPENAI_API_KEY")
     if not key or not args.base_url or not args.model:
@@ -42,6 +53,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("shadow/on requires TYPESAFE_API_KEY")
     if args.max_steps < 1 or args.max_completion_tokens < 1:
         parser.error("step/token limits must be positive")
+    if args.gate_on != "keep" and not (args.profile and args.gate_on.startswith("role:")):
+        parser.error('--gate-on must be "keep", or "role:<name>" with --profile')
     try:
         prices = Prices(*args.prices) if args.prices is not None else None
         if args.jev_input_price is not None:
@@ -70,6 +83,18 @@ def main(argv: list[str] | None = None) -> int:
             "path": {"type": "string", "enum": list(files)},
         }, "required": ["path"], "additionalProperties": False},
     }}
+    try:
+        fitted = json.loads(args.thresholds.read_text(encoding="utf-8")) \
+            if args.thresholds is not None else {}
+        gate = GateConfig(profile=args.profile, gate_on=args.gate_on,
+                          keep_threshold=fitted.get("keep_threshold", GateConfig.keep_threshold),
+                          thresholds=fitted.get("thresholds", {}))
+    except (OSError, ValueError) as exc:
+        parser.error(f"invalid --gate-on/--profile or thresholds file: {type(exc).__name__}")
+    workarea = None
+    if args.workarea:
+        workarea = WorkAreaConfig(price_input=prices.input, price_cache_read=prices.cache_read) \
+            if prices is not None else WorkAreaConfig()
     with ExitStack() as stack:
         http = stack.enter_context(httpx.Client(
             headers={"Authorization": f"Bearer {key}"}, timeout=120,
@@ -83,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
             mode=args.mode, jev=jev, max_steps=args.max_steps,
             max_completion_tokens=args.max_completion_tokens,
             prices=prices, jev_input_price=args.jev_input_price,
+            gate_config=gate, workarea=workarea,
         )
     with (args.output / "run.json").open("x", encoding="utf-8") as handle:
         json.dump(asdict(result), handle, ensure_ascii=False, indent=2)

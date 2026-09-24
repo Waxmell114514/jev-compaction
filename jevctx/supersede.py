@@ -45,8 +45,9 @@ RelationKind = Literal["superseded", "stale"]
 ANY_FILE = "*"
 _WHOLE = float("inf")
 
-VIEW_TOOLS = frozenset({"read", "view", "cat"})
-WRITE_TOOLS = frozenset({"edit", "write", "multiedit", "patch", "apply_patch", "str_replace"})
+VIEW_TOOLS = frozenset({"read", "view", "cat", "read_file", "view_file"})
+WRITE_TOOLS = frozenset({"edit", "write", "multiedit", "patch", "apply_patch", "str_replace",
+                         "edit_file", "write_file"})
 SEARCH_TOOLS = frozenset({"grep", "glob", "list", "ls", "find", "search"})
 RUN_TOOLS = frozenset({"bash", "shell", "powershell"})
 

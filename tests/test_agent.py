@@ -205,3 +205,106 @@ def test_unknown_tools_and_missing_pointers_return_recoverable_errors(tool):
 def test_malformed_provider_payload_is_an_error_report(payload):
     result = run(lambda request: httpx.Response(200, json=payload), mode="off")
     assert result.status == "error"
+
+
+def by_card(answer_stale=0.1, answer_needed=0.9, commit=0.9):
+    """Items containing STALE have served their purpose; the agent is at a commit point."""
+    def answer(state, questions, key):
+        if key == "commit":
+            return commit
+        items = {i["ref"]: i["text"] for i in state.get("items", [])}
+        text = items.get(key.split(":")[0], "")
+        return answer_stale if "STALE" in text else answer_needed
+    return FakeJevClient(answer)
+
+
+def test_recall_is_offered_only_with_the_gate_on():
+    for mode, offered in (("shadow", False), ("on", True)):
+        seen: list[list[str]] = []
+
+        def handler(request, seen=seen):
+            seen.append([t["function"]["name"] for t in json.loads(request.content)["tools"]])
+            return response()
+
+        run(handler, mode=mode, jev=by_card())
+        assert ("recall" in seen[0]) == offered
+
+
+def test_recall_finds_earlier_output_from_a_description():
+    from tests.test_recall import TRACEBACK, recall_client
+
+    requests = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            return response([call()])
+        if len(requests) == 2:
+            return response([call("call-2", "recall", json.dumps({"query": "that traceback we hit"}))])
+        assert "ValueError: month must be in 1..12" in body["messages"][-1]["content"]
+        return response()
+
+    result = run(handler, mode="on", jev=recall_client(), handlers={"read": lambda: TRACEBACK},
+                 gate_config=GateConfig(profile=True, max_elide_fraction=1.0))
+    assert result.status == "completed" and result.metrics["recalls"] == 1
+
+
+def test_an_edit_marks_an_earlier_read_out_of_date_on_expand():
+    tools = [{"type": "function", "function": {"name": n, "description": n,
+                                               "parameters": {"type": "object"}}}
+             for n in ("read", "edit")]
+    handlers = {"read": lambda path: RAW, "edit": lambda path: "edited"}
+    requests = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            return response([call("r1", "read", json.dumps({"path": "/w/a.py"}))])
+        if len(requests) == 2:
+            pointer = find_pointers(body["messages"][-1]["content"])[0]
+            requests.append(pointer.id)
+            return response([call("e1", "edit", json.dumps({"path": "a.py"}))])
+        if len(requests) == 4:
+            return response([call("x1", "expand", json.dumps({"id": requests[2]}))])
+        assert body["messages"][-1]["content"].startswith("[note: possibly out of date: /w/a.py")
+        return response()
+
+    jev = FakeJevClient.by_text(lambda text: 0.9 if "IMPORTANT" in text else 0.01)
+    with httpx.Client(transport=httpx.MockTransport(handler)) as http:
+        result = run_agent("Fix it", model="m", base_url="https://example.invalid/v1", http=http,
+                           tools=tools, handlers=handlers, store=InMemoryStore(), log=ShadowLog(),
+                           mode="on", jev=jev, cwd="/w")
+    assert result.status == "completed" and result.metrics["relations"] == {"superseded": 0, "stale": 1}
+
+
+def test_the_work_area_rewrites_requests_not_the_stored_conversation():
+    from jevctx.workarea import WorkAreaConfig
+
+    outputs = {"a": "STALE directory listing\n" + "entry\n" * 1200,
+               "b": "needed traceback\n" + "frame\n" * 1200}
+    tools = [{"type": "function", "function": {"name": "run", "description": "run",
+                                               "parameters": {"type": "object"}}}]
+    requests = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) <= 2:
+            which = "ab"[len(requests) - 1]
+            return response([call(f"c-{which}", "run", json.dumps({"which": which}))])
+        return response()
+
+    config = WorkAreaConfig(price_input=3.0, price_cache_read=0.3, min_work_tokens=1000)
+    with httpx.Client(transport=httpx.MockTransport(handler)) as http:
+        result = run_agent("Fix it", model="m", base_url="https://example.invalid/v1", http=http,
+                           tools=tools, handlers={"run": lambda which: outputs[which]},
+                           store=InMemoryStore(), log=ShadowLog(), mode="on", jev=by_card(),
+                           gate_config=GateConfig(min_gate_tokens=100_000), workarea=config)
+    sent = {m["tool_call_id"]: m["content"] for m in requests[2]["messages"] if m["role"] == "tool"}
+    assert sent["c-a"].startswith("[[elided") and "compacted run output" in sent["c-a"]
+    assert sent["c-b"] == outputs["b"]
+    stored = {m["tool_call_id"]: m["content"] for m in result.messages if m["role"] == "tool"}
+    assert stored["c-a"] == outputs["a"]              # the conversation itself is untouched
+    assert result.metrics["workarea"]["compactions"] == 1

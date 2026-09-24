@@ -57,3 +57,33 @@ def test_shadow_requires_jev_before_creating_output(tmp_path, monkeypatch):
     with pytest.raises(SystemExit):
         cli.main(["Read", "--file", "README.md", "--output", str(output)])
     assert not output.exists()
+
+
+def test_cli_turns_on_the_profiled_gate_and_the_work_area(tmp_path, monkeypatch):
+    from contextlib import nullcontext
+
+    from jevctx.testing import FakeJevClient
+    from tests.test_profile import by_dimension
+
+    configure(monkeypatch)
+    monkeypatch.setenv("TYPESAFE_API_KEY", "jev-secret")
+    monkeypatch.setattr(cli, "HttpJevClient", lambda: nullcontext(FakeJevClient(by_dimension)))
+    source = tmp_path / "notes.txt"
+    source.write_text("line\n" * 400)
+    seen = []
+
+    def handler(request):
+        seen.append([t["function"]["name"] for t in json.loads(request.content)["tools"]])
+        return response()
+
+    client_class = httpx.Client
+    monkeypatch.setattr(cli.httpx, "Client", lambda **kw: client_class(
+        transport=httpx.MockTransport(handler), **kw))
+    output = tmp_path / "run"
+    assert cli.main(["Read it", "--file", str(source), "--output", str(output), "--mode", "on",
+                     "--profile", "--gate-on", "role:change_site", "--workarea"]) == 0
+    report = json.loads((output / "run.json").read_text(encoding="utf-8"))
+    assert report["metrics"]["workarea"] is not None and "recall" in seen[0]
+    with pytest.raises(SystemExit):   # a role gate needs the profile
+        cli.main(["Read it", "--file", str(source), "--output", str(tmp_path / "r2"),
+                  "--mode", "on", "--gate-on", "role:change_site"])
