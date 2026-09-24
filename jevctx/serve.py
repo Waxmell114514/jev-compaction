@@ -8,6 +8,9 @@ usage can be attributed per run.
 
     python -m jevctx.serve --port 8765 --data-dir runs/opencode
 
+Jev's endpoint and key come from the environment (``TYPESAFE_API_KEY``, or
+``JEV_BASE_URL`` and ``JEV_API_KEY``/``OPENROUTER_API_KEY``; see :mod:`jevctx.jev`).
+
 Endpoints (JSON in, JSON out):
 
 - ``POST /admit``  ``{session, text, tool, call_id, task, turn, mode, max_elide_fraction?,

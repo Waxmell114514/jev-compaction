@@ -17,7 +17,13 @@ from dataclasses import dataclass
 import httpx
 import pytest
 
-from jevctx.jev import HttpJevClient, RateLimiter, RetryPolicy, check_request_budget
+from jevctx.jev import (
+    HttpJevClient,
+    RateLimiter,
+    RetryPolicy,
+    check_request_budget,
+    resolve_endpoint,
+)
 from jevctx.testing import FakeJevClient
 from jevctx.types import (
     Choice,
@@ -130,14 +136,24 @@ def test_request_shape_matches_spec():
     }
 
 
-def test_missing_api_key_raises_at_construction(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+_JEV_ENV = ("JEV_BASE_URL", "JEV_API_KEY", "JEV_MODEL", "JEV_PATH",
+            "TYPESAFE_API_KEY", "OPENROUTER_API_KEY")
+
+
+@pytest.fixture
+def clean_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
+    for var in _JEV_ENV:
+        monkeypatch.delenv(var, raising=False)
+    return monkeypatch
+
+
+def test_missing_api_key_raises_at_construction(clean_env: pytest.MonkeyPatch):
     with pytest.raises(JevAuthError):
         HttpJevClient()
 
 
-def test_api_key_from_env_var(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("TYPESAFE_API_KEY", "env-key")
+def test_api_key_from_env_var(clean_env: pytest.MonkeyPatch):
+    clean_env.setenv("TYPESAFE_API_KEY", "env-key")
     captured: dict[str, object] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -147,6 +163,79 @@ def test_api_key_from_env_var(monkeypatch: pytest.MonkeyPatch):
     client = HttpJevClient(transport=httpx.MockTransport(handler))
     client.ask("s", {"q": _noul()})
     assert captured["auth"] == "Bearer env-key"
+
+
+def test_endpoint_defaults_to_typesafe(clean_env: pytest.MonkeyPatch):
+    endpoint = resolve_endpoint()
+    assert endpoint.url == "https://api.typesafe.ai/v1/systemone"
+    assert endpoint.model == "jev-latest"
+    assert endpoint.api_key is None
+    assert "TYPESAFE_API_KEY" in endpoint.key_source
+
+
+def test_openrouter_base_url_switches_path_model_and_key(clean_env: pytest.MonkeyPatch):
+    clean_env.setenv("JEV_BASE_URL", "https://openrouter.ai/api/alpha")
+    clean_env.setenv("TYPESAFE_API_KEY", "typesafe-key")   # not OpenRouter's
+    clean_env.setenv("OPENROUTER_API_KEY", "or-key")
+    endpoint = resolve_endpoint()
+    assert endpoint.url == "https://openrouter.ai/api/alpha/decisions"
+    assert endpoint.model == "~typesafe/jev-latest"
+    assert (endpoint.api_key, endpoint.key_source) == ("or-key", "OPENROUTER_API_KEY")
+
+
+def test_jev_env_vars_override_every_default(clean_env: pytest.MonkeyPatch):
+    clean_env.setenv("JEV_BASE_URL", "https://openrouter.ai/api/alpha")
+    clean_env.setenv("OPENROUTER_API_KEY", "or-key")
+    clean_env.setenv("JEV_API_KEY", "jev-key")
+    clean_env.setenv("JEV_MODEL", "typesafe/jev-1.13")
+    clean_env.setenv("JEV_PATH", "custom")
+    endpoint = resolve_endpoint()
+    assert endpoint.url == "https://openrouter.ai/api/alpha/custom"
+    assert endpoint.model == "typesafe/jev-1.13"
+    assert (endpoint.api_key, endpoint.key_source) == ("jev-key", "JEV_API_KEY")
+    assert resolve_endpoint("arg-key", model="m").api_key == "arg-key"
+    assert resolve_endpoint("arg-key", model="m").model == "m"
+
+
+def test_missing_openrouter_key_names_the_right_variable(clean_env: pytest.MonkeyPatch):
+    clean_env.setenv("JEV_BASE_URL", "https://openrouter.ai/api/alpha")
+    clean_env.setenv("TYPESAFE_API_KEY", "typesafe-key")
+    with pytest.raises(JevAuthError, match="OPENROUTER_API_KEY"):
+        HttpJevClient()
+
+
+def test_openrouter_request_and_response(clean_env: pytest.MonkeyPatch):
+    """The body OpenRouter documents for /api/alpha/decisions, answered as it answers."""
+    clean_env.setenv("JEV_BASE_URL", "https://openrouter.ai/api/alpha")
+    clean_env.setenv("OPENROUTER_API_KEY", "or-key")
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["auth"] = request.headers.get("authorization")
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={
+            "model": "typesafe/jev-1.13-20260917",
+            "answers": {"team": {"type": "choice", "choice": "billing",
+                                 "probabilities": {"technical": 0, "account": 0,
+                                                   "billing": 1},
+                                 "confidence": 1}},
+            "usage": {"input_tokens": 357, "output_tokens": 38},
+            "id": "gen-dec-1", "provider": "TypeSafe",
+        })
+
+    client = HttpJevClient(transport=httpx.MockTransport(handler))
+    assert client.endpoint == "https://openrouter.ai/api/alpha/decisions"
+    question = Choice("Which team should handle this ticket?",
+                      {"billing": "Charges", "technical": "Bugs", "account": "Login"})
+    answers = client.ask("My invoice shows two charges", {"team": question})
+
+    assert captured["url"] == "https://openrouter.ai/api/alpha/decisions"
+    assert captured["auth"] == "Bearer or-key"
+    assert captured["body"]["model"] == "~typesafe/jev-latest"
+    assert captured["body"]["questions"]["team"]["type"] == "choice"
+    assert answers["team"].value == "billing"
+    assert client.usage.input_tokens == 357
 
 
 def test_401_raises_jev_auth_error_no_retry():

@@ -20,7 +20,7 @@ from jevctx.context import (
     WorkAreaTokens,
     make_block,
 )
-from jevctx.jev import HttpJevClient, RateLimiter, RetryPolicy
+from jevctx.jev import HttpJevClient, JevEndpoint, RateLimiter, RetryPolicy, resolve_endpoint
 from jevctx.label import (
     ENTITY_QUESTIONS,
     LIFETIME_QUESTION,
@@ -87,13 +87,13 @@ __all__ = [
     "RETRIEVE_QUESTION", "TYPE_QUESTION",
     "AdmitResult", "AllOf", "AnyOf", "Batch", "Block", "BudgetPlanner", "CacheLedger",
     "Choice", "CommitPolicy", "ContextBuffer", "CostBreakdown", "DigestEntry",
-    "FakeJevClient", "GateConfig", "HttpJevClient", "InMemoryStore", "ItemLabel",
+    "FakeJevClient", "GateConfig", "HttpJevClient", "InMemoryStore", "ItemLabel", "JevEndpoint",
     "JevClient", "JevError", "JsonlStore", "MemoryStore", "NeverCommit", "Noul",
     "Origin", "Pointer", "RateLimiter", "Record", "RetryPolicy", "Score", "ScoreItem",
     "ScoreResult", "Segment", "ShadowLog", "ShadowStats", "ToolDepthZero",
     "TurnCount", "TurnSignals", "WorkAreaTokens",
     "admit", "apply_label", "build_state", "run_check", "detect_kind", "estimate_tokens",
     "expand", "find_pointers", "format_pointer", "label_items", "label_records",
-    "make_block", "mark_hits", "parse_pointer", "reconstruct", "retrieve",
+    "make_block", "mark_hits", "parse_pointer", "reconstruct", "resolve_endpoint", "retrieve",
     "score_items", "score_map", "segment",
 ]

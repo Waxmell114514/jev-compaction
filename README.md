@@ -71,11 +71,25 @@ session will still run.
 
 ## Use it
 
-**Check your Jev key** (`TYPESAFE_API_KEY`):
+**Point it at Jev.** Jev is served by TypeSafe and by
+[OpenRouter](https://openrouter.ai/typesafe), with the same API:
 
 ```bash
-.venv/bin/python -m jevctx.check
+export TYPESAFE_API_KEY=...                        # TypeSafe (the default)
+# or
+export JEV_BASE_URL=https://openrouter.ai/api/alpha OPENROUTER_API_KEY=sk-or-...
+.venv/bin/python -m jevctx.check                   # one live request of each kind
 ```
+
+| variable | default |
+|---|---|
+| `JEV_BASE_URL` | `https://api.typesafe.ai/v1`; any URL that serves the same API |
+| `JEV_API_KEY` | `TYPESAFE_API_KEY`, or `OPENROUTER_API_KEY` when the URL is OpenRouter's |
+| `JEV_MODEL` | `jev-latest`, or `~typesafe/jev-latest` on OpenRouter |
+| `JEV_PATH` | `/systemone`, or `/decisions` on OpenRouter |
+
+`HttpJevClient(api_key=, base_url=, model=, path=)` takes the same settings as
+arguments. Everything below uses them: the sidecar, `run_agent.py` and `demo.py`.
 
 **In your own agent loop:**
 
@@ -100,7 +114,7 @@ read-only tasks over files you name:
 
 ```bash
 export OPENAI_BASE_URL=https://YOUR-ENDPOINT/v1 OPENAI_MODEL=YOUR-MODEL OPENAI_API_KEY=...
-export TYPESAFE_API_KEY=...
+export TYPESAFE_API_KEY=...        # or JEV_BASE_URL + OPENROUTER_API_KEY, as above
 python run_agent.py "Find the dependency conflict" --file tests/fixtures/npm_install.log \
     --mode on --profile --gate-on role:change_site --workarea \
     --prices 3 15 0.3 0 --output runs/gated

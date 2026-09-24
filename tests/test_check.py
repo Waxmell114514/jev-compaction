@@ -11,7 +11,7 @@ import re
 
 import pytest
 
-from jevctx.check import ENV_VAR, run_check
+from jevctx.check import run_check
 from jevctx.testing import FakeJevClient
 from jevctx.types import (
     Choice,
@@ -48,10 +48,12 @@ def run(factory, capsys) -> tuple[int, str]:
 
 
 def test_no_key_explains_what_to_do(capsys, monkeypatch) -> None:
-    monkeypatch.delenv(ENV_VAR, raising=False)
+    for var in ("TYPESAFE_API_KEY", "JEV_API_KEY", "JEV_BASE_URL", "OPENROUTER_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
     code, out = run(None, capsys)
     assert code == 2
-    assert ENV_VAR in out
+    assert "TYPESAFE_API_KEY" in out
+    assert "openrouter.ai/api/alpha" in out, "must say how to use Jev on OpenRouter"
     assert "python demo.py" in out, "must point at the offline path that still works"
 
 

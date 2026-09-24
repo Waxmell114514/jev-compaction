@@ -10,12 +10,13 @@ _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def test_demo_runs_offline_and_shows_each_mechanism(capsys, monkeypatch) -> None:
-    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    for var in ("TYPESAFE_API_KEY", "JEV_API_KEY", "JEV_BASE_URL", "OPENROUTER_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
     assert demo.main() == 0
     out = _ANSI.sub("", capsys.readouterr().out)
     for act in ("ACT 1", "ACT 2", "ACT 3", "ACT 4", "ACT 5", "ACT 6"):
         assert act in out
-    assert "No TYPESAFE_API_KEY" in out, "the stand-in must announce itself"
+    assert "No Jev key" in out, "the stand-in must announce itself"
     assert "planted instruction reached the model: False" in out
     assert "byte-exact: True" in out
     assert "AssertionError: parse_month('13') did not raise ValueError" in out.split("ACT 3")[1]

@@ -39,8 +39,10 @@ sees where it is and how to read on.
 ## Run it
 
 ```bash
-# 1. the sidecar (TYPESAFE_API_KEY is the Jev key)
+# 1. the sidecar, with a Jev key from TypeSafe...
 export TYPESAFE_API_KEY=...
+#    ...or from OpenRouter
+# export JEV_BASE_URL=https://openrouter.ai/api/alpha OPENROUTER_API_KEY=sk-or-...
 .venv/bin/python -m jevctx.serve --port 8765 --data-dir runs/opencode \
     --profile --gate-on role:change_site --max-elide-fraction 1.0 \
     --price-input 3 --price-cache-read 0.3        # your model's prices, USD per 1M tokens
@@ -65,6 +67,9 @@ JEV_URL=http://127.0.0.1:8765 JEV_PROFILE=1 JEV_WORKAREA=1 opencode
 | `JEV_PROFILE` | `1` asks the type, role, lifetime and injection questions with every admit |
 | `JEV_MAX_ELIDE_FRACTION` | override the sidecar's tripwire; `1` disables it |
 | `JEV_WORKAREA` | `1` turns on work-area compaction |
+
+The sidecar reads the Jev endpoint from `JEV_BASE_URL`, `JEV_API_KEY`, `JEV_MODEL`
+and `JEV_PATH`; see [the main README](../../README.md#use-it).
 
 The plugin fails open. If the sidecar or Jev is unreachable, the original output
 goes through unchanged and a line is written to stderr.

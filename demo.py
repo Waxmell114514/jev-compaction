@@ -5,7 +5,8 @@
 
 It runs offline against a scripted stand-in for Jev, so it works with no API key.
 Set TYPESAFE_API_KEY to run the same code against the real model (its answers will
-differ from the stand-in's, which is the point of having a real model).
+differ from the stand-in's, which is the point of having a real model). For Jev on
+OpenRouter, set JEV_BASE_URL=https://openrouter.ai/api/alpha and OPENROUTER_API_KEY.
 
 Six acts, one per mechanism, in the order a tool output meets them:
 
@@ -19,7 +20,6 @@ Six acts, one per mechanism, in the order a tool output meets them:
 
 from __future__ import annotations
 
-import os
 import sys
 import textwrap
 
@@ -42,6 +42,7 @@ from jevctx import (
     note_for,
     recall,
     render_hits,
+    resolve_endpoint,
 )
 from jevctx.recall import RECALL_QUESTION
 from jevctx.workarea import STILL_NEEDED_QUESTION
@@ -160,10 +161,12 @@ def judge(state: dict, questions: dict, key: str):
 
 
 def make_client():
-    if os.environ.get("TYPESAFE_API_KEY"):
-        print("Using the real Jev (TYPESAFE_API_KEY is set).")
+    endpoint = resolve_endpoint()
+    if endpoint.api_key:
+        print(f"Using the real Jev at {endpoint.url} ({endpoint.key_source} is set).")
         return HttpJevClient()
-    note("No TYPESAFE_API_KEY: a scripted stand-in plays Jev. Set it to use the real model.")
+    note("No Jev key: a scripted stand-in plays Jev. "
+         "Set TYPESAFE_API_KEY (or JEV_BASE_URL + JEV_API_KEY) to use the real model.")
     return FakeJevClient(judge)
 
 

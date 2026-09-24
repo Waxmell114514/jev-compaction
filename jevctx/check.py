@@ -16,7 +16,6 @@ It checks three things, in order, and stops at the first failure:
 
 from __future__ import annotations
 
-import os
 import sys
 import time
 from collections.abc import Callable
@@ -38,8 +37,6 @@ from jevctx.types import (
 )
 
 __all__ = ["run_check", "main", "SAMPLE_OUTPUT", "SAMPLE_TASK"]
-
-ENV_VAR = "TYPESAFE_API_KEY"
 
 SAMPLE_TASK = "The build fails on a dependency conflict. Find which package is pinned wrong."
 
@@ -73,16 +70,19 @@ def run_check(client_factory: Callable[[], JevClient] | None = None) -> int:
     """Run the live check. Returns a process exit code."""
     print(f"\n{_BOLD}jevctx — live Jev check{_OFF}\n")
 
+    key_source = "your Jev key"
     if client_factory is None:
-        key = os.environ.get(ENV_VAR)
-        if not key:
-            _fail(f"{ENV_VAR} is not set")
-            _dim(f"export {ENV_VAR}=... and run this again.")
+        from jevctx.jev import HttpJevClient, resolve_endpoint
+        endpoint = resolve_endpoint()
+        key_source = endpoint.key_source
+        if not endpoint.api_key:
+            _fail(f"no Jev key: set {key_source}")
+            _dim("export TYPESAFE_API_KEY=... and run this again; for Jev on OpenRouter,")
+            _dim("export JEV_BASE_URL=https://openrouter.ai/api/alpha OPENROUTER_API_KEY=...")
             _dim("Without a key everything still runs offline: python demo.py")
             return 2
-        print(f"  key       {_DIM}{ENV_VAR} = {key[:6]}…{key[-4:]}{_OFF}")
-
-        from jevctx.jev import HttpJevClient
+        key = endpoint.api_key
+        print(f"  key       {_DIM}{key_source} = {key[:6]}…{key[-4:]}{_OFF}")
         client_factory = HttpJevClient
 
     try:
@@ -91,8 +91,12 @@ def run_check(client_factory: Callable[[], JevClient] | None = None) -> int:
         _fail(f"could not build a client: {exc}")
         return 2
 
-    endpoint = getattr(client, "endpoint", "(custom client)")
-    print(f"  endpoint  {_DIM}{endpoint}{_OFF}\n")
+    url = getattr(client, "endpoint", "(custom client)")
+    model = getattr(client, "model", None)
+    print(f"  endpoint  {_DIM}{url}{_OFF}")
+    if model:
+        print(f"  model     {_DIM}{model}{_OFF}")
+    print()
 
     try:
         if not _check_question_types(client):
@@ -102,7 +106,7 @@ def run_check(client_factory: Callable[[], JevClient] | None = None) -> int:
     except JevAuthError as exc:
         _fail("Jev rejected the key")
         _dim(str(exc))
-        _dim(f"Check {ENV_VAR}, or generate a new key at https://typesafe.ai")
+        _dim(f"Check {key_source}, and that it is a key for {url}")
         return 2
     except JevValidationError as exc:
         _fail("Jev rejected the request as malformed — this is a bug in jevctx")

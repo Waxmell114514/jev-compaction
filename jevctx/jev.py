@@ -20,6 +20,18 @@ here because ``scorer.score_items`` fans a single admit()/retrieve() call out ac
 many worker threads sharing one ``HttpJevClient``. ``422`` is never retried because
 a 422 means the request itself is malformed, so retrying it
 just repeats the same bug instead of fixing it.
+
+Jev is served by TypeSafe (``POST https://api.typesafe.ai/v1/systemone``) and by
+OpenRouter (``POST https://openrouter.ai/api/alpha/decisions``) with the same request
+and response bodies. ``resolve_endpoint`` picks one from arguments or the
+environment:
+
+- ``JEV_BASE_URL``: default ``https://api.typesafe.ai/v1``; any other URL that
+  serves the same API works, e.g. ``https://openrouter.ai/api/alpha``
+- ``JEV_API_KEY``: default ``TYPESAFE_API_KEY``, or ``OPENROUTER_API_KEY`` when
+  the base URL is OpenRouter's
+- ``JEV_MODEL``: default ``jev-latest``, or ``~typesafe/jev-latest`` on OpenRouter
+- ``JEV_PATH``: default ``/systemone``, or ``/decisions`` on OpenRouter
 """
 
 from __future__ import annotations
@@ -58,7 +70,10 @@ from jevctx.types import (
     parse_answer,
 )
 
-__all__ = ["HttpJevClient", "RateLimiter", "RetryPolicy", "Usage", "check_request_budget"]
+__all__ = [
+    "HttpJevClient", "JevEndpoint", "RateLimiter", "RetryPolicy", "Usage",
+    "check_request_budget", "resolve_endpoint",
+]
 
 
 # --------------------------------------------------------------------------- #
@@ -278,12 +293,72 @@ def _error_detail(response: httpx.Response) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Where Jev is served
+# --------------------------------------------------------------------------- #
+
+TYPESAFE_BASE_URL = "https://api.typesafe.ai/v1"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/alpha"
+
+
+@dataclass(frozen=True)
+class JevEndpoint:
+    """A resolved Jev endpoint. ``key_source`` names where the key came from."""
+
+    base_url: str
+    path: str
+    model: str
+    api_key: str | None
+    key_source: str
+
+    @property
+    def url(self) -> str:
+        return self.base_url.rstrip("/") + self.path
+
+    @property
+    def is_openrouter(self) -> bool:
+        return _is_openrouter(self.base_url)
+
+
+def _is_openrouter(base_url: str) -> bool:
+    host = httpx.URL(base_url).host
+    return host == "openrouter.ai" or host.endswith(".openrouter.ai")
+
+
+def resolve_endpoint(
+    api_key: str | None = None,
+    *,
+    base_url: str | None = None,
+    path: str | None = None,
+    model: str | None = None,
+    env: Mapping[str, str] | None = None,
+) -> JevEndpoint:
+    """Arguments win, then ``JEV_*`` env vars, then the provider's defaults."""
+    env = os.environ if env is None else env
+    base_url = base_url or env.get("JEV_BASE_URL") or TYPESAFE_BASE_URL
+    openrouter = _is_openrouter(base_url)
+    path = path or env.get("JEV_PATH") or ("/decisions" if openrouter else "/systemone")
+    if not path.startswith("/"):
+        path = "/" + path
+    model = model or env.get("JEV_MODEL") or (
+        "~typesafe/jev-latest" if openrouter else "jev-latest")
+    if api_key:
+        return JevEndpoint(base_url, path, model, api_key, "api_key=")
+    for var in ("JEV_API_KEY", "OPENROUTER_API_KEY" if openrouter else "TYPESAFE_API_KEY"):
+        if env.get(var):
+            return JevEndpoint(base_url, path, model, env[var], var)
+    fallback = "OPENROUTER_API_KEY" if openrouter else "TYPESAFE_API_KEY"
+    return JevEndpoint(base_url, path, model, None, f"JEV_API_KEY or {fallback}")
+
+
+# --------------------------------------------------------------------------- #
 # The client
 # --------------------------------------------------------------------------- #
 
 
 class HttpJevClient:
-    """``JevClient`` over HTTP, against ``POST {base_url}/systemone``.
+    """``JevClient`` over HTTP, against ``POST {base_url}{path}``.
+
+    Every endpoint setting left as ``None`` comes from ``resolve_endpoint``.
 
     Three independent safety mechanisms wrap the one HTTP call: ``check_request_budget``
     rejects an oversized request before it touches the network; a
@@ -297,8 +372,9 @@ class HttpJevClient:
         self,
         api_key: str | None = None,
         *,
-        model: str = "jev-latest",
-        base_url: str = "https://api.typesafe.ai/v1",
+        model: str | None = None,
+        base_url: str | None = None,
+        path: str | None = None,
         timeout: float = 15.0,
         max_retries: int = 3,
         max_concurrency: int = 16,
@@ -306,12 +382,13 @@ class HttpJevClient:
         sleep: Callable[[float], None] = time.sleep,
         rng: random.Random | None = None,
     ) -> None:
-        key = api_key or os.environ.get("TYPESAFE_API_KEY")
-        if not key:
+        endpoint = resolve_endpoint(api_key, base_url=base_url, path=path, model=model)
+        if not endpoint.api_key:
             raise JevAuthError(
-                "no Jev API key: pass api_key=, or set the TYPESAFE_API_KEY env var"
+                f"no Jev API key: pass api_key=, or set {endpoint.key_source}"
             )
-        self._model = model
+        self._model = endpoint.model
+        self._path = endpoint.path
         self._timeout = timeout
         self._sleep = sleep
         self._retry_policy = RetryPolicy(max_retries=max_retries, rng=rng)
@@ -319,9 +396,9 @@ class HttpJevClient:
         self._rate_limiter = RateLimiter(RATE_LIMIT_RPM, 60.0, sleep=sleep)
         self.usage = Usage()
         self._client = httpx.Client(
-            base_url=base_url,
+            base_url=endpoint.base_url,
             timeout=timeout,
-            headers={"Authorization": f"Bearer {key}"},
+            headers={"Authorization": f"Bearer {endpoint.api_key}"},
             transport=transport,
         )
 
@@ -342,7 +419,7 @@ class HttpJevClient:
     @property
     def endpoint(self) -> str:
         """The full URL this client posts to. Handy when a check has to report it."""
-        return f"{str(self._client.base_url).rstrip('/')}/systemone"
+        return f"{str(self._client.base_url).rstrip('/')}{self._path}"
 
     @property
     def model(self) -> str:
@@ -362,7 +439,7 @@ class HttpJevClient:
                 is_last_attempt = attempt == self._retry_policy.max_retries
                 self._rate_limiter.acquire()
                 try:
-                    response = self._client.post("/systemone", json=body)
+                    response = self._client.post(self._path, json=body)
                 except httpx.TransportError as exc:
                     last_error = exc
                     if is_last_attempt:

@@ -13,7 +13,8 @@ def configure(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-secret")
     monkeypatch.setenv("OPENAI_BASE_URL", "https://example.invalid/v1")
     monkeypatch.setenv("OPENAI_MODEL", "configured-model")
-    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    for var in ("TYPESAFE_API_KEY", "JEV_API_KEY", "JEV_BASE_URL", "OPENROUTER_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
 
 
 def test_cli_reads_only_allowlisted_files_and_writes_report(tmp_path, monkeypatch):

@@ -12,7 +12,7 @@ from pathlib import Path
 import httpx
 
 from jevctx.agent import run_agent
-from jevctx.jev import HttpJevClient
+from jevctx.jev import HttpJevClient, resolve_endpoint
 from jevctx.pipeline import GateConfig
 from jevctx.shadow import ShadowLog
 from jevctx.store import JsonlStore
@@ -49,8 +49,8 @@ def main(argv: list[str] | None = None) -> int:
     key = os.environ.get("OPENAI_API_KEY")
     if not key or not args.base_url or not args.model:
         parser.error("set OPENAI_API_KEY, OPENAI_BASE_URL and OPENAI_MODEL (or URL/model flags)")
-    if args.mode != "off" and not os.environ.get("TYPESAFE_API_KEY"):
-        parser.error("shadow/on requires TYPESAFE_API_KEY")
+    if args.mode != "off" and not (jev_endpoint := resolve_endpoint()).api_key:
+        parser.error(f"shadow/on needs a Jev key: set {jev_endpoint.key_source}")
     if args.max_steps < 1 or args.max_completion_tokens < 1:
         parser.error("step/token limits must be positive")
     if args.gate_on != "keep" and not (args.profile and args.gate_on.startswith("role:")):
