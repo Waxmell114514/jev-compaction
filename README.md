@@ -4,7 +4,7 @@
 write it, so everything the agent sees is original, and anything moved out can be
 brought back byte for byte.**
 
-![python demo.py: admission, injection quarantine, expand and recall, supersession, the work area](docs/demo.gif)
+[![Seven turns of an agent: Jev labels every segment, holds an injection, marks stale and superseded outputs, compacts the work area when the price check says so, and recall brings an output back](docs/tour.gif)](https://waxmell114514.github.io/jev-compaction/)
 
 **[▶ How it works, and what it did on SWE-bench](https://waxmell114514.github.io/jev-compaction/)**,
 or run the tour locally with no API key:

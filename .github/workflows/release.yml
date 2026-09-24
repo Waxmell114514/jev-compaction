@@ -29,10 +29,10 @@ jobs:
         run: |
           notes=".github/releases/$TAG.md"
           if [ -f "$notes" ]; then
-            gh release create "$TAG" docs/demo.gif --target "$GITHUB_SHA" \
+            gh release create "$TAG" docs/tour.gif --target "$GITHUB_SHA" \
               --title "$(head -n 1 "$notes")" --notes "$(tail -n +3 "$notes")"
           else
             git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
-            gh release create "$TAG" docs/demo.gif --verify-tag --notes-from-tag \
+            gh release create "$TAG" docs/tour.gif --verify-tag --notes-from-tag \
               --title "$(git tag -l --format='%(contents:subject)' "$TAG")"
           fi
