@@ -11,7 +11,6 @@ import re
 
 import pytest
 
-import demo
 from jevctx.check import ENV_VAR, run_check
 from jevctx.testing import FakeJevClient
 from jevctx.types import (
@@ -37,7 +36,7 @@ def answering(*, choice: str = "build", noul: float = 0.97, score: float = 2.0):
         if isinstance(state, dict):
             for item in state.get("items") or []:
                 if item.get("ref") == key:
-                    return demo.stand_in_judgement(item["text"])
+                    return 0.95 if "ERR" in item["text"].upper() else 0.05
         return 1.0
 
     return answer

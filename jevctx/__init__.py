@@ -7,6 +7,7 @@ deleted.
 """
 
 from jevctx.budget import Batch, BudgetPlanner
+from jevctx.calibrate import fit_thresholds
 from jevctx.check import run_check
 from jevctx.context import (
     DEFAULT_COMMIT_POLICY,
@@ -46,10 +47,13 @@ from jevctx.pipeline import (
     reconstruct,
     retrieve,
 )
+from jevctx.profile import INJECTION_QUESTION, ROLE_QUESTION, Profile, profile_items
+from jevctx.recall import RecallHit, recall, render_hits
 from jevctx.scorer import build_state, score_items, score_map
 from jevctx.segments import detect_kind, segment
 from jevctx.shadow import ShadowLog, ShadowStats
 from jevctx.store import InMemoryStore, JsonlStore
+from jevctx.supersede import Relation, SupersessionIndex, footprints, note_for
 from jevctx.testing import FakeJevClient
 from jevctx.tokens import estimate_tokens
 from jevctx.types import (
@@ -70,11 +74,15 @@ from jevctx.types import (
     Segment,
     TurnSignals,
 )
+from jevctx.workarea import TailItem, WorkArea, WorkAreaConfig, compaction_pays
 
 __version__ = "0.1.0"
 
 __all__ = [
-    "ADMIT_QUESTION", "DEFAULT_COMMIT_POLICY", "DEFAULT_GATE_CONFIG",
+    "ADMIT_QUESTION", "DEFAULT_COMMIT_POLICY", "DEFAULT_GATE_CONFIG", "INJECTION_QUESTION",
+    "ROLE_QUESTION", "Profile", "RecallHit", "Relation", "SupersessionIndex", "TailItem",
+    "WorkArea", "WorkAreaConfig", "compaction_pays", "fit_thresholds", "footprints",
+    "note_for", "profile_items", "recall", "render_hits",
     "ENTITY_QUESTIONS", "EXPAND_TOOL_SCHEMA", "LIFETIME_QUESTION",
     "RETRIEVE_QUESTION", "TYPE_QUESTION",
     "AdmitResult", "AllOf", "AnyOf", "Batch", "Block", "BudgetPlanner", "CacheLedger",
