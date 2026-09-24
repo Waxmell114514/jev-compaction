@@ -318,7 +318,7 @@ def act5_work_area(client, store, log, index: SupersessionIndex) -> None:
 def act6_results() -> None:
     rule("ACT 6  On SWE-bench Verified (OpenCode, one run per arm, 21–24 instances)")
     rows = [
-        ("tool output in context", "gate", "0.80 [0.64, 1.00]× the control"),
+        ("tool output in context", "gate", "0.83 [0.68, 1.02]× the control"),
         ("elided code the agent later edited", "profiled gate", "11 records, against 21"),
         ("prompt tokens / cost", "gate", "within noise (turns set the bill)"),
         ("tokens per request", "work area", "0.84 [0.73, 0.95]× the gate alone"),
