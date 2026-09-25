@@ -123,6 +123,52 @@ only 6% smaller than the control's, within noise. **How long a session will stil
 run is what decides whether a rewrite pays**, and it is estimated from a fixed
 prior, not from the task.
 
+## Goal conditioning: judging against the call's intent (offline)
+
+`admit(..., intent=...)` also tells the judge what the agent was looking for when
+it made the call. Scoring was replayed with Jev on 35 recorded Pi runs
+(`deepseek-v4-flash`, shadow arm). This covers 2,742 segments, 152 of them code the
+agent later edited. Each segment was scored four times: without an intent; with the
+call itself (`bash: grep -rn …`); with the model's words before the call (its text or
+thinking, as `run_agent(intent="reply")` sends); and with the words followed by the
+call.
+
+| intent | AUC, later-edited code | edited segments lost at 25% / 40% of tokens elided |
+|---|---:|---:|
+| none | 0.793 | 15.8% / 22.4% |
+| the call | 0.797 | 17.1% / 25.7% |
+| the model's words | 0.780 | 11.2% / 23.0% |
+| words, then the call | 0.807 | 13.2% / 22.4% |
+| *profiled gate, `role: change_site`:* | | |
+| none | 0.799 | 6.6% / 13.2% |
+| words, then the call | 0.793 | 5.9% / 12.5% |
+
+**No condition beat no intent at 95%.** Words followed by the call did best, at
+ΔAUC +0.014 [−0.009, +0.042], with a paired bootstrap over runs. The profiled gate
+is still much the better signal whether or not an intent is given. Two caveats:
+- This label asks whether the task needed a segment later, not whether it answered
+  the call. Whatever intent saves in turns, by reading less beside the point, needs
+  a live run to show.
+- Intent is only as available as the model's narration. Pi's `deepseek-v4-flash`
+  wrote or thought something before 71% of calls. OpenCode's recorded events show
+  text before 4% of calls, and those recordings carry no reasoning.
+
+## Other judges
+
+`jevctx.check` passes end to end with each of the following:
+
+| judge | question-types request | gate request |
+|---|---:|---:|
+| Jev on TypeSafe | 0.6 s | 0.16 s |
+| Jev on OpenRouter | passes | passes |
+| `z-ai/glm-5.2:free` on OpenRouter | 14 s | 18 s |
+| `qwen/qwen3.8-27b:free` on OpenRouter, without JSON mode | 14 s | 65 s |
+
+On the check's sample, all four kept the error and relocated the progress lines.
+Free models are rate-limited to a shared pool, and on a recorded SWE-bench run
+`glm-5.2:free` failed 55 of 86 segments. A quality comparison with Jev therefore
+needs a paid model; one has not been run.
+
 ## What is not established
 
 - **Resolve-rate effects of a point or two.** With one run per arm and harness
@@ -131,3 +177,7 @@ prior, not from the task.
   runs are too short to need them.
 - **Cost on a paid model.** Every dollar figure here is a price sheet applied to a
   free model's token counts.
+- **What goal conditioning does live.** Whether judging against the call's intent
+  cuts turns, as SWE-Pruner's goal-conditioned pruning did, has not been run.
+- **How other judges compare with Jev.** They run end to end, but only Jev has been
+  measured on SWE-bench.

@@ -115,7 +115,9 @@ export JEVCTX_JUDGE=llm JUDGE_BASE_URL=https://api.openai.com/v1 JUDGE_MODEL=gpt
 
 `make_judge()` builds whichever judge the environment names. The sidecar,
 `run_agent.py`, `demo.py` and `jevctx.check` all use it. Every number on this page
-was measured with Jev. A chat model gives its own probability estimates, so fit the
+was measured with Jev. `jevctx.check` passes with free `glm-5.2` and `qwen3.8-27b`
+on OpenRouter, but they are 100 times slower, and their gate quality is unmeasured
+([RESULTS.md](RESULTS.md#other-judges)). A chat model gives its own probability estimates, so fit the
 thresholds for your judge from a shadow log (`python -m jevctx.calibrate`) before
 turning the gate on. Each judge request costs that model's price per token.
 
@@ -153,7 +155,10 @@ also be an argument the model fills in, as in
 optional `intent` parameter to every tool and strips it before the tool runs. Without
 an intent, requests are exactly as before. Thresholds fitted without intents may not
 fit with them: fit them from shadow runs made with intents (the log records each
-decision's). This has not yet been measured on SWE-bench.
+decision's). Offline, on 35 recorded runs, no kind of intent predicted the code the
+agent went on to edit significantly better than none
+([RESULTS.md](RESULTS.md#goal-conditioning-judging-against-the-calls-intent-offline)).
+Whether it cuts turns live is untested.
 
 **With an OpenAI-compatible model.** [`jevctx.agent.run_agent`](jevctx/agent.py) is
 a complete tool loop with every mechanism above. `run_agent.py` wraps it for
