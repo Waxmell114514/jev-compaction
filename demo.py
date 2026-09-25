@@ -26,7 +26,6 @@ import textwrap
 from jevctx import (
     FakeJevClient,
     GateConfig,
-    HttpJevClient,
     InMemoryStore,
     Origin,
     ShadowLog,
@@ -39,10 +38,11 @@ from jevctx import (
     estimate_tokens,
     expand,
     find_pointers,
+    make_judge,
     note_for,
     recall,
     render_hits,
-    resolve_endpoint,
+    resolve_judge,
 )
 from jevctx.recall import RECALL_QUESTION
 from jevctx.workarea import STILL_NEEDED_QUESTION
@@ -161,12 +161,14 @@ def judge(state: dict, questions: dict, key: str):
 
 
 def make_client():
-    endpoint = resolve_endpoint()
-    if endpoint.api_key:
-        print(f"Using the real Jev at {endpoint.url} ({endpoint.key_source} is set).")
-        return HttpJevClient()
+    spec = resolve_judge()
+    if spec.ready:
+        name = "Jev" if spec.kind == "jev" else f"judge {spec.model}"
+        print(f"Using the real {name} at {spec.url}.")
+        return make_judge()
     note("No Jev key: a scripted stand-in plays Jev. "
-         "Set TYPESAFE_API_KEY (or JEV_BASE_URL + JEV_API_KEY) to use the real model.")
+         "Set TYPESAFE_API_KEY (or JEV_BASE_URL + JEV_API_KEY) to use the real model, "
+         "or JEVCTX_JUDGE=llm with JUDGE_BASE_URL and JUDGE_MODEL for another one.")
     return FakeJevClient(judge)
 
 

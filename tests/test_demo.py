@@ -10,7 +10,8 @@ _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def test_demo_runs_offline_and_shows_each_mechanism(capsys, monkeypatch) -> None:
-    for var in ("TYPESAFE_API_KEY", "JEV_API_KEY", "JEV_BASE_URL", "OPENROUTER_API_KEY"):
+    for var in ("TYPESAFE_API_KEY", "JEV_API_KEY", "JEV_BASE_URL", "OPENROUTER_API_KEY",
+                "JEVCTX_JUDGE"):
         monkeypatch.delenv(var, raising=False)
     assert demo.main() == 0
     out = _ANSI.sub("", capsys.readouterr().out)

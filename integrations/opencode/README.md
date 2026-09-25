@@ -43,6 +43,8 @@ sees where it is and how to read on.
 export TYPESAFE_API_KEY=...
 #    ...or from OpenRouter
 # export JEV_BASE_URL=https://openrouter.ai/api/alpha OPENROUTER_API_KEY=sk-or-...
+#    ...or any OpenAI-compatible chat model as the judge
+# export JEVCTX_JUDGE=llm JUDGE_BASE_URL=http://localhost:11434/v1 JUDGE_MODEL=qwen3:4b
 .venv/bin/python -m jevctx.serve --port 8765 --data-dir runs/opencode \
     --profile --gate-on role:change_site --max-elide-fraction 1.0 \
     --price-input 3 --price-cache-read 0.3        # your model's prices, USD per 1M tokens
@@ -69,7 +71,8 @@ JEV_URL=http://127.0.0.1:8765 JEV_PROFILE=1 JEV_WORKAREA=1 opencode
 | `JEV_WORKAREA` | `1` turns on work-area compaction |
 
 The sidecar reads the Jev endpoint from `JEV_BASE_URL`, `JEV_API_KEY`, `JEV_MODEL`
-and `JEV_PATH`; see [the main README](../../README.md#use-it).
+and `JEV_PATH`, or, with `JEVCTX_JUDGE=llm`, another model's from `JUDGE_*`; see
+[the main README](../../README.md#use-it).
 
 The plugin fails open. If the sidecar or Jev is unreachable, the original output
 goes through unchanged and a line is written to stderr.

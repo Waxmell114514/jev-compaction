@@ -1,4 +1,7 @@
-"""jevctx -- cache-preserving agent context compaction and memory, gated by Jev.
+"""jevctx -- cache-preserving agent context compaction and memory.
+
+The gate's judge is Jev by default, or any OpenAI-compatible chat model
+(:mod:`jevctx.judge`).
 
 The short version: context is ``[frozen prefix] + [work area]``, the
 prefix is append-only so the KV cache over it is never invalidated, and content the
@@ -21,6 +24,7 @@ from jevctx.context import (
     make_block,
 )
 from jevctx.jev import HttpJevClient, JevEndpoint, RateLimiter, RetryPolicy, resolve_endpoint
+from jevctx.judge import JudgeSpec, LLMJudgeClient, make_judge, resolve_judge
 from jevctx.label import (
     ENTITY_QUESTIONS,
     LIFETIME_QUESTION,
@@ -83,6 +87,7 @@ __all__ = [
     "ROLE_QUESTION", "Profile", "RecallHit", "Relation", "SupersessionIndex", "TailItem",
     "WorkArea", "WorkAreaConfig", "compaction_pays", "fit_thresholds", "footprints",
     "note_for", "profile_items", "recall", "render_hits",
+    "JudgeSpec", "LLMJudgeClient", "make_judge", "resolve_judge",
     "ENTITY_QUESTIONS", "EXPAND_TOOL_SCHEMA", "LIFETIME_QUESTION",
     "RETRIEVE_QUESTION", "TYPE_QUESTION",
     "AdmitResult", "AllOf", "AnyOf", "Batch", "Block", "BudgetPlanner", "CacheLedger",

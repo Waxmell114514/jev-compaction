@@ -93,13 +93,39 @@ export JEV_BASE_URL=https://openrouter.ai/api/alpha OPENROUTER_API_KEY=sk-or-...
 `HttpJevClient(api_key=, base_url=, model=, path=)` takes the same settings as
 arguments. Everything below uses them: the sidecar, `run_agent.py` and `demo.py`.
 
+**Or use another model as the judge.** Every mechanism asks its questions through
+one interface: yes/no, pick-one or ordered-scale questions about a piece of state.
+Jev answers them natively. [`LLMJudgeClient`](jevctx/judge.py) has any
+OpenAI-compatible chat model answer them in JSON, whether it is a hosted API or a
+local server:
+
+```bash
+export JEVCTX_JUDGE=llm JUDGE_BASE_URL=https://api.openai.com/v1 JUDGE_MODEL=gpt-5-mini JUDGE_API_KEY=...
+# or local, no key: JUDGE_BASE_URL=http://localhost:11434/v1 JUDGE_MODEL=qwen3:4b
+.venv/bin/python -m jevctx.check
+```
+
+| variable | meaning |
+|---|---|
+| `JEVCTX_JUDGE` | `jev` (default) or `llm` |
+| `JUDGE_BASE_URL`, `JUDGE_MODEL` | required for `llm` |
+| `JUDGE_API_KEY` | sent as a bearer token; omit it for a server that needs none |
+| `JUDGE_JSON_MODE=0` | for a server that rejects `response_format` |
+| `JUDGE_RPM` | cap on requests per minute |
+
+`make_judge()` builds whichever judge the environment names. The sidecar,
+`run_agent.py`, `demo.py` and `jevctx.check` all use it. Every number on this page
+was measured with Jev. A chat model gives its own probability estimates, so fit the
+thresholds for your judge from a shadow log (`python -m jevctx.calibrate`) before
+turning the gate on. Each judge request costs that model's price per token.
+
 **In your own agent loop:**
 
 ```python
-from jevctx import (GateConfig, HttpJevClient, InMemoryStore, Origin, ShadowLog,
-                    SupersessionIndex, admit, expand, recall)
+from jevctx import (GateConfig, InMemoryStore, Origin, ShadowLog, SupersessionIndex,
+                    admit, expand, make_judge, recall)
 
-store, log, jev = InMemoryStore(), ShadowLog("shadow.jsonl"), HttpJevClient()
+store, log, jev = InMemoryStore(), ShadowLog("shadow.jsonl"), make_judge()   # Jev, or JEVCTX_JUDGE
 gate = GateConfig(profile=True, gate_on="role:change_site", shadow_only=True)   # start in shadow
 
 result = admit(tool_output, Origin(source="tool:bash", ref=call_id, turn=turn),
@@ -116,7 +142,7 @@ read-only tasks over files you name:
 
 ```bash
 export OPENAI_BASE_URL=https://YOUR-ENDPOINT/v1 OPENAI_MODEL=YOUR-MODEL OPENAI_API_KEY=...
-export TYPESAFE_API_KEY=...        # or JEV_BASE_URL + OPENROUTER_API_KEY, as above
+export TYPESAFE_API_KEY=...        # or JEV_BASE_URL + OPENROUTER_API_KEY, or JEVCTX_JUDGE=llm
 python run_agent.py "Find the dependency conflict" --file tests/fixtures/npm_install.log \
     --mode on --profile --gate-on role:change_site --workarea \
     --prices 3 15 0.3 0 --output runs/gated

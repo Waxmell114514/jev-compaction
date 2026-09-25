@@ -12,7 +12,7 @@ from pathlib import Path
 import httpx
 
 from jevctx.agent import run_agent
-from jevctx.jev import HttpJevClient, resolve_endpoint
+from jevctx.judge import make_judge, resolve_judge
 from jevctx.pipeline import GateConfig
 from jevctx.shadow import ShadowLog
 from jevctx.store import JsonlStore
@@ -35,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
                         metavar=("INPUT", "OUTPUT", "CACHE_READ", "CACHE_WRITE"),
                         help="USD per million tokens; omitted means unknown cost")
     parser.add_argument("--jev-input-price", type=float,
-                        help="Jev USD per million input tokens; omitted means unknown cost")
+                        help="Judge USD per million input tokens (Jev: 0.042); omitted means unknown cost")
     parser.add_argument("--profile", action="store_true",
                         help="Label every segment's type, role, lifetime and injection risk")
     parser.add_argument("--gate-on", default="keep",
@@ -49,8 +49,13 @@ def main(argv: list[str] | None = None) -> int:
     key = os.environ.get("OPENAI_API_KEY")
     if not key or not args.base_url or not args.model:
         parser.error("set OPENAI_API_KEY, OPENAI_BASE_URL and OPENAI_MODEL (or URL/model flags)")
-    if args.mode != "off" and not (jev_endpoint := resolve_endpoint()).api_key:
-        parser.error(f"shadow/on needs a Jev key: set {jev_endpoint.key_source}")
+    if args.mode != "off":
+        try:
+            judge = resolve_judge()
+        except ValueError as exc:
+            parser.error(str(exc))
+        if not judge.ready:
+            parser.error(f"shadow/on needs a judge: set {judge.missing}")
     if args.max_steps < 1 or args.max_completion_tokens < 1:
         parser.error("step/token limits must be positive")
     if args.gate_on != "keep" and not (args.profile and args.gate_on.startswith("role:")):
@@ -99,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
         http = stack.enter_context(httpx.Client(
             headers={"Authorization": f"Bearer {key}"}, timeout=120,
         ))
-        jev = stack.enter_context(HttpJevClient()) if args.mode != "off" else None
+        jev = stack.enter_context(make_judge()) if args.mode != "off" else None
         result = run_agent(
             args.task, model=args.model, base_url=args.base_url, http=http,
             tools=[schema], handlers={"read_file": read_file},

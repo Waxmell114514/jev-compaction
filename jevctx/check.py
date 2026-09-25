@@ -1,11 +1,12 @@
-"""Verify a real Jev API key end to end.
+"""Verify a real judge (Jev by default) end to end.
 
     python -m jevctx.check
 
 Everything else in this package is tested against a mock transport, which proves
-the code is self-consistent but never proves it can talk to Jev. This module is the
-one thing that makes a real request, so the first time you plug in a key you find
-out in one command rather than halfway through an agent run.
+the code is self-consistent but never proves it can talk to Jev, or to whichever
+judge ``JEVCTX_JUDGE`` names (:mod:`jevctx.judge`). This module is the one thing that
+makes a real request, so the first time you plug in a key you find out in one command
+rather than halfway through an agent run.
 
 It checks three things, in order, and stops at the first failure:
 
@@ -68,22 +69,42 @@ def _dim(text: str) -> None:
 
 def run_check(client_factory: Callable[[], JevClient] | None = None) -> int:
     """Run the live check. Returns a process exit code."""
-    print(f"\n{_BOLD}jevctx — live Jev check{_OFF}\n")
+    print(f"\n{_BOLD}jevctx — live judge check{_OFF}\n")
 
     key_source = "your Jev key"
+    judge = "jev"
     if client_factory is None:
-        from jevctx.jev import HttpJevClient, resolve_endpoint
-        endpoint = resolve_endpoint()
-        key_source = endpoint.key_source
-        if not endpoint.api_key:
-            _fail(f"no Jev key: set {key_source}")
-            _dim("export TYPESAFE_API_KEY=... and run this again; for Jev on OpenRouter,")
-            _dim("export JEV_BASE_URL=https://openrouter.ai/api/alpha OPENROUTER_API_KEY=...")
-            _dim("Without a key everything still runs offline: python demo.py")
+        from jevctx.jev import resolve_endpoint
+        from jevctx.judge import make_judge, resolve_judge
+        try:
+            spec = resolve_judge()
+        except ValueError as exc:
+            _fail(str(exc))
             return 2
-        key = endpoint.api_key
-        print(f"  key       {_DIM}{key_source} = {key[:6]}…{key[-4:]}{_OFF}")
-        client_factory = HttpJevClient
+        judge = spec.kind
+        if judge == "llm":
+            key_source = "JUDGE_API_KEY"
+            if not spec.ready:
+                _fail(f"the llm judge needs {spec.missing}")
+                _dim("export JUDGE_BASE_URL=https://api.openai.com/v1 JUDGE_MODEL=gpt-5-mini "
+                     "JUDGE_API_KEY=...")
+                _dim("or a local server: JUDGE_BASE_URL=http://localhost:11434/v1 "
+                     "JUDGE_MODEL=qwen3:4b")
+                return 2
+        else:
+            endpoint = resolve_endpoint()
+            key_source = endpoint.key_source
+            if not endpoint.api_key:
+                _fail(f"no Jev key: set {key_source}")
+                _dim("export TYPESAFE_API_KEY=... and run this again; for Jev on OpenRouter,")
+                _dim("export JEV_BASE_URL=https://openrouter.ai/api/alpha OPENROUTER_API_KEY=...")
+                _dim("For another model: export JEVCTX_JUDGE=llm JUDGE_BASE_URL=... "
+                     "JUDGE_MODEL=...")
+                _dim("Without a key everything still runs offline: python demo.py")
+                return 2
+            key = endpoint.api_key
+            print(f"  key       {_DIM}{key_source} = {key[:6]}…{key[-4:]}{_OFF}")
+        client_factory = make_judge
 
     try:
         client = client_factory()
@@ -91,6 +112,7 @@ def run_check(client_factory: Callable[[], JevClient] | None = None) -> int:
         _fail(f"could not build a client: {exc}")
         return 2
 
+    name = "Jev" if judge == "jev" else "The judge"
     url = getattr(client, "endpoint", "(custom client)")
     model = getattr(client, "model", None)
     print(f"  endpoint  {_DIM}{url}{_OFF}")
@@ -104,18 +126,26 @@ def run_check(client_factory: Callable[[], JevClient] | None = None) -> int:
         if not _check_the_gate(client):
             return 1
     except JevAuthError as exc:
-        _fail("Jev rejected the key")
+        _fail(f"{name} rejected the key")
         _dim(str(exc))
         _dim(f"Check {key_source}, and that it is a key for {url}")
         return 2
     except JevValidationError as exc:
+        if judge == "llm":
+            _fail("The judge rejected the request: check JUDGE_MODEL and JUDGE_BASE_URL")
+            _dim(str(exc))
+            _dim("A server that rejects response_format needs JUDGE_JSON_MODE=0.")
+            return 1
         _fail("Jev rejected the request as malformed — this is a bug in jevctx")
         _dim(str(exc))
         _dim("Please open an issue with this message.")
         return 1
     except JevUnavailableError as exc:
-        _fail("could not reach Jev")
+        _fail(f"could not get answers from {'Jev' if judge == 'jev' else 'the judge'}")
         _dim(str(exc))
+        if judge == "llm":
+            _dim("A model that keeps replying with something other than the JSON asked")
+            _dim("for is too weak to judge; try a larger one.")
         _dim("Network, proxy, or an outage. The gate fails open, so an agent using")
         _dim("jevctx would keep working here — just without compaction.")
         return 1
@@ -125,14 +155,14 @@ def run_check(client_factory: Callable[[], JevClient] | None = None) -> int:
 
     usage = getattr(client, "usage", None)
     if usage is not None and getattr(usage, "input_tokens", 0):
-        cost = usage.input_tokens * PRICE_PER_INPUT_TOKEN
+        cost = f" · ${usage.input_tokens * PRICE_PER_INPUT_TOKEN:.6f}" if judge == "jev" else ""
         print(f"\n  usage     {_DIM}{usage.requests} requests · "
-              f"{usage.input_tokens:,} input tokens · ${cost:.6f}{_OFF}")
+              f"{usage.input_tokens:,} input tokens{cost}{_OFF}")
 
-    print(f"\n{_GREEN}{_BOLD}Everything works.{_OFF} Drop HttpJevClient() into your agent:\n")
-    print(f"{_DIM}    from jevctx import HttpJevClient, admit, InMemoryStore, ShadowLog")
+    print(f"\n{_GREEN}{_BOLD}Everything works.{_OFF} Drop make_judge() into your agent:\n")
+    print(f"{_DIM}    from jevctx import make_judge, admit, InMemoryStore, ShadowLog")
     print("    result = admit(tool_output, origin, task_digest=..., turn=n,")
-    print("                   client=HttpJevClient(), store=store, log=log,")
+    print("                   client=make_judge(), store=store, log=log,")
     print(f"                   config=GateConfig(shadow_only=True))   # start here{_OFF}\n")
     return 0
 
@@ -167,7 +197,7 @@ def _check_question_types(client: JevClient) -> bool:
 
     missing = set(questions) - set(answers)
     if missing:
-        _fail(f"Jev did not answer: {', '.join(sorted(missing))}")
+        _fail(f"the judge did not answer: {', '.join(sorted(missing))}")
         return False
 
     noul, choice, score = answers["is_question"], answers["topic"], answers["urgency"]
@@ -210,11 +240,11 @@ def _check_the_gate(client: JevClient) -> bool:
 
     if result.tripwire:
         _fail(f"the max-elide tripwire fired ({result.tripwire})")
-        _dim("Jev wanted to remove most of this output. Not fatal, but the gate")
+        _dim("The judge wanted to remove most of this output. Not fatal, but the gate")
         _dim("kept everything, so there is nothing further to check here.")
         return False
     if not result.pointers:
-        _fail("nothing was relocated — Jev scored every segment above the threshold")
+        _fail("nothing was relocated — the judge scored every segment above the threshold")
         _dim("Not necessarily wrong, but this sample is mostly progress noise, so it")
         _dim("is worth a look at the scores above before trusting the gate.")
         return False

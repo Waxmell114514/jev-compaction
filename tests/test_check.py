@@ -48,7 +48,8 @@ def run(factory, capsys) -> tuple[int, str]:
 
 
 def test_no_key_explains_what_to_do(capsys, monkeypatch) -> None:
-    for var in ("TYPESAFE_API_KEY", "JEV_API_KEY", "JEV_BASE_URL", "OPENROUTER_API_KEY"):
+    for var in ("TYPESAFE_API_KEY", "JEV_API_KEY", "JEV_BASE_URL", "OPENROUTER_API_KEY",
+                "JEVCTX_JUDGE"):
         monkeypatch.delenv(var, raising=False)
     code, out = run(None, capsys)
     assert code == 2

@@ -13,7 +13,8 @@ def configure(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-secret")
     monkeypatch.setenv("OPENAI_BASE_URL", "https://example.invalid/v1")
     monkeypatch.setenv("OPENAI_MODEL", "configured-model")
-    for var in ("TYPESAFE_API_KEY", "JEV_API_KEY", "JEV_BASE_URL", "OPENROUTER_API_KEY"):
+    for var in ("TYPESAFE_API_KEY", "JEV_API_KEY", "JEV_BASE_URL", "OPENROUTER_API_KEY",
+                "JEVCTX_JUDGE"):
         monkeypatch.delenv(var, raising=False)
 
 
@@ -68,7 +69,7 @@ def test_cli_turns_on_the_profiled_gate_and_the_work_area(tmp_path, monkeypatch)
 
     configure(monkeypatch)
     monkeypatch.setenv("TYPESAFE_API_KEY", "jev-secret")
-    monkeypatch.setattr(cli, "HttpJevClient", lambda: nullcontext(FakeJevClient(by_dimension)))
+    monkeypatch.setattr(cli, "make_judge", lambda: nullcontext(FakeJevClient(by_dimension)))
     source = tmp_path / "notes.txt"
     source.write_text("line\n" * 400)
     seen = []

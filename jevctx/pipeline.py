@@ -19,7 +19,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from jevctx.jev import HttpJevClient
+from jevctx.judge import make_judge
 from jevctx.label import ENTITY_QUESTIONS, LIFETIME_QUESTION, TYPE_QUESTION
 from jevctx.profile import Profile, aggregate, extract_names, profile_items
 from jevctx.scorer import score_items
@@ -488,8 +488,11 @@ def retrieve(
         return results
 
     if client is None:
-        with HttpJevClient() as live:
+        live = make_judge()
+        try:
             results = score(live)
+        finally:
+            live.close()
     else:
         results = score(client)
     ranked = sorted(results, key=lambda r: r.score, reverse=True)

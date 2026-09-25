@@ -8,8 +8,10 @@ usage can be attributed per run.
 
     python -m jevctx.serve --port 8765 --data-dir runs/opencode
 
-Jev's endpoint and key come from the environment (``TYPESAFE_API_KEY``, or
-``JEV_BASE_URL`` and ``JEV_API_KEY``/``OPENROUTER_API_KEY``; see :mod:`jevctx.jev`).
+The judge comes from the environment (:mod:`jevctx.judge`): Jev by default, with its
+endpoint and key from ``TYPESAFE_API_KEY``, or ``JEV_BASE_URL`` and
+``JEV_API_KEY``/``OPENROUTER_API_KEY`` (:mod:`jevctx.jev`); or, with
+``JEVCTX_JUDGE=llm``, any OpenAI-compatible chat model at ``JUDGE_BASE_URL``.
 
 Endpoints (JSON in, JSON out):
 
@@ -48,7 +50,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from jevctx.jev import HttpJevClient
+from jevctx.judge import make_judge
 from jevctx.pipeline import GateConfig, admit, expand
 from jevctx.profile import ROLE_QUESTION, TYPE_QUESTION
 from jevctx.recall import recall, render_hits
@@ -91,7 +93,7 @@ class SidecarState:
     """Sessions by name, created on first use."""
 
     def __init__(self, data_dir: Path | None, config: GateConfig,
-                 client_factory=HttpJevClient,
+                 client_factory=make_judge,
                  workarea: WorkAreaConfig | None = None) -> None:
         self.data_dir = data_dir
         self.config = config
