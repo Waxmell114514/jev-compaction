@@ -143,7 +143,7 @@ def run_check(client_factory: Callable[[], JevClient] | None = None) -> int:
     except JevUnavailableError as exc:
         _fail(f"could not get answers from {'Jev' if judge == 'jev' else 'the judge'}")
         _dim(str(exc))
-        if judge == "llm":
+        if judge == "llm" and type(exc.__cause__).__name__ == "_Malformed":
             _dim("A model that keeps replying with something other than the JSON asked")
             _dim("for is too weak to judge; try a larger one.")
         _dim("Network, proxy, or an outage. The gate fails open, so an agent using")

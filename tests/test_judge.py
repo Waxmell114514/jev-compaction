@@ -195,3 +195,37 @@ def test_the_environment_picks_the_judge() -> None:
 
     with pytest.raises(ValueError, match="jev, llm"):
         resolve_judge({"JEVCTX_JUDGE": "gpt"})
+
+
+def test_keys_from_a_crlf_env_file_are_stripped() -> None:
+    from jevctx.jev import resolve_endpoint
+
+    assert resolve_endpoint(env={"TYPESAFE_API_KEY": "abc\r\n"}).api_key == "abc"
+    assert resolve_endpoint(env={"TYPESAFE_API_KEY": " \r"}).api_key is None
+    seen = []
+    client = LLMJudgeClient(env={**JUDGE_ENV, "JUDGE_API_KEY": "k\r"},
+                            transport=httpx.MockTransport(
+                                lambda r: seen.append(r) or completion('{"n": {"p": 1}}')))
+    client.ask("x", {"n": NOUL})
+    assert seen[0].headers["authorization"] == "Bearer k"
+
+
+def test_a_transport_failure_names_only_its_class() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("secret header value leaked here")
+
+    with pytest.raises(JevUnavailableError) as caught:
+        judge(refuse, max_retries=0).ask("x", {"n": NOUL})
+    assert "ConnectError" in str(caught.value) and "secret" not in str(caught.value)
+
+
+def test_a_mangled_json_mode_reply_is_retried_without_json_mode() -> None:
+    formats = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        formats.append(body.get("response_format"))
+        return completion('{"": "n"}' if "response_format" in body else '{"n": {"p": 0.7}}')
+
+    assert judge(handler).ask("x", {"n": NOUL})["n"].value == 0.7
+    assert formats == [{"type": "json_object"}, None]

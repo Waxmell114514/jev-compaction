@@ -341,11 +341,12 @@ def resolve_endpoint(
         path = "/" + path
     model = model or env.get("JEV_MODEL") or (
         "~typesafe/jev-latest" if openrouter else "jev-latest")
-    if api_key:
-        return JevEndpoint(base_url, path, model, api_key, "api_key=")
+    # Strip: a key pasted from a CRLF .env file ends in "\r", an illegal header byte.
+    if api_key and api_key.strip():
+        return JevEndpoint(base_url, path, model, api_key.strip(), "api_key=")
     for var in ("JEV_API_KEY", "OPENROUTER_API_KEY" if openrouter else "TYPESAFE_API_KEY"):
-        if env.get(var):
-            return JevEndpoint(base_url, path, model, env[var], var)
+        if (value := (env.get(var) or "").strip()):
+            return JevEndpoint(base_url, path, model, value, var)
     fallback = "OPENROUTER_API_KEY" if openrouter else "TYPESAFE_API_KEY"
     return JevEndpoint(base_url, path, model, None, f"JEV_API_KEY or {fallback}")
 

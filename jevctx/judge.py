@@ -172,7 +172,8 @@ class LLMJudgeClient:
     Settings left as ``None`` come from ``JUDGE_*`` environment variables (see the
     module docstring). A request carries the state and every question once, and gets
     one JSON object back; a reply that misses a question or is not JSON is retried like
-    a 5xx, then raised as ``JevUnavailableError`` so the gate fails open. It enforces
+    a 5xx (without ``response_format``, which some providers' JSON mode mangles), then
+    raised as ``JevUnavailableError`` so the gate fails open. It enforces
     Jev's request limits too, so callers batch exactly as they do for Jev.
     """
 
@@ -198,7 +199,7 @@ class LLMJudgeClient:
         model = model or env.get("JUDGE_MODEL")
         if not base_url or not model:
             raise JevAuthError("the llm judge needs JUDGE_BASE_URL and JUDGE_MODEL")
-        api_key = api_key or env.get("JUDGE_API_KEY")
+        api_key = (api_key or env.get("JUDGE_API_KEY") or "").strip() or None
         if json_mode is None:
             json_mode = env.get("JUDGE_JSON_MODE", "1") != "0"
         if rpm is None and env.get("JUDGE_RPM"):
@@ -274,14 +275,22 @@ class LLMJudgeClient:
                     header = response.headers.get("retry-after")
                     seconds = _parse_retry_after(header) if header else None
                     retry_after = min(seconds, self._timeout) if seconds is not None else None
-                except (httpx.TransportError, _Malformed) as exc:
+                except httpx.TransportError as exc:
                     last_error = exc
+                except _Malformed as exc:
+                    last_error = exc
+                    # Some providers' JSON mode mangles the answer (seen: a reasoning
+                    # model that worked it out, then emitted {"": "<key>"}), so the
+                    # retries ask without it and rely on the prompt alone.
+                    body.pop("response_format", None)
                 if is_last_attempt:
                     break
                 self._sleep(self._retry_policy.delay(attempt, retry_after=retry_after))
+        # A transport error's text can quote request headers, so name only its class.
+        reason = last_error if isinstance(last_error, _Malformed | JevUnavailableError) \
+            else type(last_error).__name__
         raise JevUnavailableError(
-            f"judge request failed after {self._retry_policy.max_retries + 1} attempt(s): "
-            f"{last_error}"
+            f"judge request failed after {self._retry_policy.max_retries + 1} attempt(s): {reason}"
         ) from last_error
 
     @staticmethod
