@@ -69,6 +69,7 @@ JEV_URL=http://127.0.0.1:8765 JEV_PROFILE=1 JEV_WORKAREA=1 opencode
 | `JEV_PROFILE` | `1` asks the type, role, lifetime and injection questions with every admit |
 | `JEV_MAX_ELIDE_FRACTION` | override the sidecar's tripwire; `1` disables it |
 | `JEV_WORKAREA` | `1` turns on work-area compaction |
+| `JEV_INTENT` | `1` judges each output against what the model said it was doing when it made the call (the text, else the reasoning, of the same message) as well as the task |
 
 The sidecar reads the Jev endpoint from `JEV_BASE_URL`, `JEV_API_KEY`, `JEV_MODEL`
 and `JEV_PATH`, or, with `JEVCTX_JUDGE=llm`, another model's from `JUDGE_*`; see

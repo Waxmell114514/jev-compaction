@@ -12,7 +12,11 @@ The same mechanisms as the OpenCode plugin (``integrations/opencode``), in-proce
 - **work area** (``workarea=WorkAreaConfig(...)``): before each request, outputs in
   the transcript's tail that have served their purpose or were made obsolete are
   replaced by pointers in that request, when breaking the prompt cache pays
-  (:mod:`jevctx.workarea`). The stored conversation is never rewritten.
+  (:mod:`jevctx.workarea`). The stored conversation is never rewritten;
+- **intent** (``intent="reply"`` or ``"arg"``): each output is judged against what
+  the model was looking for when it made the call, as well as the task. ``reply``
+  takes it from the model's own message that made the call; ``arg`` also gives every
+  tool an optional ``intent`` argument to state it in, falling back to the message.
 """
 
 from __future__ import annotations
@@ -21,13 +25,14 @@ import inspect
 import json
 import time
 from collections.abc import Callable, Mapping, Sequence
+from copy import deepcopy
 from dataclasses import asdict, dataclass, replace
 from typing import Any, Literal
 
 import httpx
 
 from jevctx.context import ContextBuffer, make_block
-from jevctx.pipeline import EXPAND_TOOL_SCHEMA, GateConfig, admit, expand
+from jevctx.pipeline import EXPAND_TOOL_SCHEMA, GateConfig, admit, expand, intent_digest
 from jevctx.profile import ROLE_QUESTION, TYPE_QUESTION
 from jevctx.recall import recall, render_hits
 from jevctx.shadow import ShadowLog
@@ -45,6 +50,26 @@ SYSTEM = (
     "it, use recall with a description. Do not invent missing evidence."
 )
 RESERVED = frozenset({"expand", "recall"})
+
+INTENT_PARAMETER = {
+    "type": "string",
+    "description": (
+        "Optional, one sentence: what you are looking for in this call's output. Parts "
+        "that bear on neither it nor the task may be elided (expand brings them back)."),
+}
+
+
+def _with_intent(schema: dict[str, Any]) -> dict[str, Any] | None:
+    """``schema`` with an optional ``intent`` argument, or None if it cannot take one."""
+    parameters = schema["function"].get("parameters") or {"type": "object", "properties": {}}
+    properties = parameters.get("properties")
+    if parameters.get("type") != "object" or not isinstance(properties, dict) \
+            or "intent" in properties:
+        return None
+    added = deepcopy(schema)
+    added["function"]["parameters"] = {**deepcopy(parameters),
+                                       "properties": {**properties, "intent": INTENT_PARAMETER}}
+    return added
 
 RECALL_SCHEMA = {"type": "function", "function": {
     "name": "recall",
@@ -113,7 +138,7 @@ def run_agent(
     max_completion_tokens: int = 4096,
     gate_config: GateConfig | None = None, prices: Prices | None = None,
     jev_input_price: float | None = None, workarea: WorkAreaConfig | None = None,
-    cwd: str | None = None,
+    cwd: str | None = None, intent: Literal["off", "reply", "arg"] = "off",
 ) -> AgentResult:
     """Run one fresh task. ``http`` supplies auth, transport and timeouts.
 
@@ -124,10 +149,13 @@ def run_agent(
 
     ``recall`` is offered with the gate ``on``; ``workarea`` rewrites requests only
     then, too (``shadow`` changes nothing the model sees). ``cwd`` resolves relative
-    paths in tool arguments for supersession.
+    paths in tool arguments for supersession. ``intent`` conditions admission on
+    what the model was looking for (see the module docstring).
     """
     if mode not in {"off", "shadow", "on"} or max_steps < 1 or max_completion_tokens < 1:
         raise ValueError("invalid mode or step/token limit")
+    if intent not in {"off", "reply", "arg"}:
+        raise ValueError('intent must be "off", "reply" or "arg"')
     if not task.strip() or not model.strip() or not base_url.strip():
         raise ValueError("task, model and base_url are required")
     if mode != "off" and jev is None:
@@ -142,7 +170,15 @@ def run_agent(
         "name": "expand", "description": EXPAND_TOOL_SCHEMA["description"],
         "parameters": EXPAND_TOOL_SCHEMA["input_schema"],
     }}
-    schemas = [*tools, expand_schema, *([RECALL_SCHEMA] if mode == "on" else [])]
+    # Tools that take an `intent` argument this loop added, and strips before the handler.
+    stating: set[str] = set()
+    offered = list(tools)
+    if intent == "arg" and mode != "off":
+        for position, schema in enumerate(tools):
+            if (added := _with_intent(schema)) is not None:
+                offered[position] = added
+                stating.add(schema["function"]["name"])
+    schemas = [*offered, expand_schema, *([RECALL_SCHEMA] if mode == "on" else [])]
     config = replace(gate_config or GateConfig(), shadow_only=mode == "shadow")
     if config.gate_on != "keep" and not (config.profile and config.gate_on.startswith("role:")):
         raise ValueError('gate_on must be "keep", or "role:<name>" with profile=True')
@@ -239,16 +275,23 @@ def run_agent(
                 raise ValueError("tool_calls finish reason without calls")
             if turn == max_steps:
                 break  # Do not execute side effects without a remaining response turn.
+            said = message.get("content") or message.get("reasoning_content") \
+                if intent != "off" else None
             for call in calls:
                 name = call["function"]["name"]
                 tool_names[call["id"]] = name
                 tool_count += 1
                 failed = False
                 arguments: Any = {}
+                call_intent = said if isinstance(said, str) else None
                 try:
                     arguments = json.loads(call["function"]["arguments"])
                     if not isinstance(arguments, dict):
                         raise ValueError("tool arguments must be an object")
+                    if name in stating:
+                        stated = arguments.pop("intent", None)
+                        if isinstance(stated, str) and stated.strip():
+                            call_intent = stated
                     if name == "expand":
                         if set(arguments) != {"id"} or not isinstance(arguments["id"], str):
                             raise ValueError("expand expects a string id")
@@ -280,7 +323,7 @@ def run_agent(
                     gated = admit(
                         text, Origin(source=f"tool:{name}", ref=call["id"], turn=turn),
                         task_digest=task, turn=turn, client=jev, store=store, log=log,
-                        config=config,
+                        config=config, intent=intent_digest(call_intent),
                     )
                     text = gated.text
                     saved_tokens += gated.saved_tokens

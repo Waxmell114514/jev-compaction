@@ -36,6 +36,7 @@ from jevctx.label import (
 )
 from jevctx.ledger import CacheLedger, CostBreakdown
 from jevctx.pipeline import (
+    ADMIT_INTENT_QUESTION,
     ADMIT_QUESTION,
     DEFAULT_GATE_CONFIG,
     EXPAND_TOOL_SCHEMA,
@@ -46,6 +47,7 @@ from jevctx.pipeline import (
     expand,
     find_pointers,
     format_pointer,
+    intent_digest,
     mark_hits,
     parse_pointer,
     reconstruct,
@@ -83,7 +85,7 @@ from jevctx.workarea import TailItem, WorkArea, WorkAreaConfig, compaction_pays
 __version__ = "0.2.0"
 
 __all__ = [
-    "ADMIT_QUESTION", "DEFAULT_COMMIT_POLICY", "DEFAULT_GATE_CONFIG", "INJECTION_QUESTION",
+    "ADMIT_INTENT_QUESTION", "ADMIT_QUESTION", "DEFAULT_COMMIT_POLICY", "DEFAULT_GATE_CONFIG", "INJECTION_QUESTION",
     "ROLE_QUESTION", "Profile", "RecallHit", "Relation", "SupersessionIndex", "TailItem",
     "WorkArea", "WorkAreaConfig", "compaction_pays", "fit_thresholds", "footprints",
     "note_for", "profile_items", "recall", "render_hits",
@@ -98,7 +100,7 @@ __all__ = [
     "ScoreResult", "Segment", "ShadowLog", "ShadowStats", "ToolDepthZero",
     "TurnCount", "TurnSignals", "WorkAreaTokens",
     "admit", "apply_label", "build_state", "run_check", "detect_kind", "estimate_tokens",
-    "expand", "find_pointers", "format_pointer", "label_items", "label_records",
+    "expand", "find_pointers", "format_pointer", "intent_digest", "label_items", "label_records",
     "make_block", "mark_hits", "parse_pointer", "reconstruct", "resolve_endpoint", "retrieve",
     "score_items", "score_map", "segment",
 ]

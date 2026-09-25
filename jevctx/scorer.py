@@ -42,21 +42,27 @@ __all__ = ["build_state", "score_items", "score_map"]
 
 
 def build_state(
-    task_digest: str, items: Sequence[ScoreItem], refs: Sequence[str]
+    task_digest: str, items: Sequence[ScoreItem], refs: Sequence[str],
+    intent: str | None = None,
 ) -> dict[str, Any]:
     """The exact Jev ``state`` for one batch: the task digest plus these items only.
+
+    With an ``intent`` (what the agent was looking for when it made the call that
+    produced these items) the state carries it too, under ``intent``; without one the
+    state is exactly what it always was.
 
     Public, not just an implementation detail, so the state-scoping test -- and any
     caller that wants to preview a request -- can rely on this shape
     directly instead of re-deriving it. ``refs`` and ``items`` must be the same length and
     are paired up positionally, exactly as ``Batch.question_keys`` and ``Batch.items`` are.
     """
-    return {
-        "task": task_digest,
-        "items": [
-            {"ref": ref, "text": item.text} for ref, item in zip(refs, items, strict=True)
-        ],
-    }
+    state: dict[str, Any] = {"task": task_digest}
+    if intent:
+        state["intent"] = intent
+    state["items"] = [
+        {"ref": ref, "text": item.text} for ref, item in zip(refs, items, strict=True)
+    ]
+    return state
 
 
 def _ref_question(question: Noul, ref: str) -> Noul:
@@ -86,6 +92,7 @@ def _score_batch(
     batch_index: int,
     question: Noul,
     on_error: Literal["keep", "raise"],
+    intent: str | None = None,
 ) -> list[ScoreResult]:
     if batch.meta.get("oversized"):
         # Never sent: an oversized item defaults to "keep" unconditionally, regardless of
@@ -93,7 +100,7 @@ def _score_batch(
         return _fail_open(batch, batch_index, "oversized")
 
     refs = batch.question_keys
-    state = build_state(task_digest, batch.items, refs)
+    state = build_state(task_digest, batch.items, refs, intent)
     questions: dict[str, Question] = {ref: _ref_question(question, ref) for ref in refs}
 
     try:
@@ -127,6 +134,7 @@ def score_items(
     planner: BudgetPlanner | None = None,
     max_workers: int = 8,
     on_error: Literal["keep", "raise"] = "keep",
+    intent: str | None = None,
 ) -> list[ScoreResult]:
     """Score every item in ``items`` against ``question``, batched under Jev's limits.
 
@@ -143,12 +151,12 @@ def score_items(
 
     planner = planner or BudgetPlanner()
     question_tokens = estimate_tokens(_ref_question(question, "i0").to_payload())
-    envelope_tokens = estimate_tokens(build_state(task_digest, [], []))
+    envelope_tokens = estimate_tokens(build_state(task_digest, [], [], intent))
     batches = planner.plan(items, question_tokens, envelope_tokens)
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = [
-            pool.submit(_score_batch, client, task_digest, batch, idx, question, on_error)
+            pool.submit(_score_batch, client, task_digest, batch, idx, question, on_error, intent)
             for idx, batch in enumerate(batches)
         ]
         batch_results = [future.result() for future in futures]

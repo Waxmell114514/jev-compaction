@@ -45,6 +45,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--workarea", action="store_true",
                         help="Compact the transcript's tail before each request when it pays "
                              "(priced with --prices, else $3 input / $0.30 cache read)")
+    parser.add_argument("--intent", choices=("off", "reply", "arg"), default="off",
+                        help="Judge each output against what the model was looking for: "
+                             "its message before the call (reply), or also an optional "
+                             "`intent` argument on every tool (arg)")
     args = parser.parse_args(argv)
     key = os.environ.get("OPENAI_API_KEY")
     if not key or not args.base_url or not args.model:
@@ -113,7 +117,7 @@ def main(argv: list[str] | None = None) -> int:
             mode=args.mode, jev=jev, max_steps=args.max_steps,
             max_completion_tokens=args.max_completion_tokens,
             prices=prices, jev_input_price=args.jev_input_price,
-            gate_config=gate, workarea=workarea,
+            gate_config=gate, workarea=workarea, intent=args.intent,
         )
     with (args.output / "run.json").open("x", encoding="utf-8") as handle:
         json.dump(asdict(result), handle, ensure_ascii=False, indent=2)

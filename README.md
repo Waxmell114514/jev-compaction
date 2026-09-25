@@ -42,7 +42,7 @@ sidecar.
 
 | | mechanism | module |
 |---|---|---|
-| 1 | **Admission with a profile.** Tool output is split into segments. One Jev request asks each segment whether to keep it, what type it is (source, test output, traceback…), what role it plays (the code to change, evidence, navigation, noise…), how long it will matter, and whether it is a prompt injection. Low-value runs become a one-line pointer that says what it hides. Injections are quarantined. | [`pipeline`](jevctx/pipeline.py), [`profile`](jevctx/profile.py) |
+| 1 | **Admission with a profile.** Tool output is split into segments. One Jev request asks each segment whether to keep it, what type it is (source, test output, traceback…), what role it plays (the code to change, evidence, navigation, noise…), how long it will matter, and whether it is a prompt injection. Low-value runs become a one-line pointer that says what it hides. Injections are quarantined. Optionally, each output is also judged against what the agent was looking for when it made the call (its *intent*). | [`pipeline`](jevctx/pipeline.py), [`profile`](jevctx/profile.py) |
 | 2 | **Getting it back.** `expand` returns the text behind a pointer byte for byte. `recall` finds earlier output from a loose description, even output that has left the context. It filters on the profile, shortlists lexically, and has Jev rerank. | [`pipeline`](jevctx/pipeline.py), [`recall`](jevctx/recall.py) |
 | 3 | **Supersession.** From each tool call's arguments, with no Jev call, it records which earlier outputs a later call made obsolete: the same command run again, the same lines read again, or the file edited since. | [`supersede`](jevctx/supersede.py) |
 | 4 | **The work area.** The transcript is a frozen, cached prefix plus a work area after the last commit point. Before each request, work-area outputs that have served their purpose, and obsolete outputs anywhere, become pointers, but only when `dropped × turns left × cache price` beats `rest of the tail × (input − cache price)`. The rewrite applies to the request; the stored conversation is never changed. | [`workarea`](jevctx/workarea.py) |
@@ -136,6 +136,25 @@ result = admit(tool_output, Origin(source="tool:bash", ref=call_id, turn=turn),
 Start with `shadow_only=True`. It scores and logs everything but changes nothing.
 Replay the log to choose thresholds, then turn it on.
 
+**Goal conditioning.** The task says what the whole session is for, not what one
+call was for. A 2,000-line file read to find one function is mostly worth keeping
+for the task, and mostly beside the point of that read. Pass the agent's intent for
+the call, and the judge is asked about both:
+
+```python
+result = admit(tool_output, origin, task_digest=task, turn=turn, client=jev, store=store,
+               log=log, config=gate, intent="Let me find where parse_month checks the range")
+```
+
+The intent can be the model's own words before the call: `run_agent(intent="reply")`,
+`JEV_INTENT=1` in the OpenCode plugin, or `"intent"` in the sidecar's `/admit`. It can
+also be an argument the model fills in, as in
+[SWE-Pruner](https://arxiv.org/abs/2601.16746): `run_agent(intent="arg")` adds an
+optional `intent` parameter to every tool and strips it before the tool runs. Without
+an intent, requests are exactly as before. Thresholds fitted without intents may not
+fit with them: fit them from shadow runs made with intents (the log records each
+decision's). This has not yet been measured on SWE-bench.
+
 **With an OpenAI-compatible model.** [`jevctx.agent.run_agent`](jevctx/agent.py) is
 a complete tool loop with every mechanism above. `run_agent.py` wraps it for
 read-only tasks over files you name:
@@ -144,11 +163,12 @@ read-only tasks over files you name:
 export OPENAI_BASE_URL=https://YOUR-ENDPOINT/v1 OPENAI_MODEL=YOUR-MODEL OPENAI_API_KEY=...
 export TYPESAFE_API_KEY=...        # or JEV_BASE_URL + OPENROUTER_API_KEY, or JEVCTX_JUDGE=llm
 python run_agent.py "Find the dependency conflict" --file tests/fixtures/npm_install.log \
-    --mode on --profile --gate-on role:change_site --workarea \
+    --mode on --profile --gate-on role:change_site --workarea --intent reply \
     --prices 3 15 0.3 0 --output runs/gated
 ```
 
-`--mode off | shadow | on`; `--workarea` prices rewrites with `--prices`.
+`--mode off | shadow | on`; `--workarea` prices rewrites with `--prices`;
+`--intent off | reply | arg` sets goal conditioning.
 `run.json` reports usage, cost, `expand` and `recall` counts, relations and
 work-area decisions.
 

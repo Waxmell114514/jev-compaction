@@ -16,9 +16,11 @@ endpoint and key from ``TYPESAFE_API_KEY``, or ``JEV_BASE_URL`` and
 Endpoints (JSON in, JSON out):
 
 - ``POST /admit``  ``{session, text, tool, call_id, task, turn, mode, max_elide_fraction?,
-  profile?, args?, cwd?}`` →
+  profile?, args?, cwd?, intent?}`` →
   ``{text, gated, original_tokens, result_tokens, pointers, tripwire}``; with the
-  call's ``args`` the session also learns what it viewed, ran or searched
+  call's ``args`` the session also learns what it viewed, ran or searched; with an
+  ``intent`` (what the agent said it was looking for) the output is judged against
+  that as well as the task
 - ``POST /observe`` ``{session, tool, call_id, args, turn, cwd?}`` → ``{relations}``: a
   tool call the gate does not see (``edit``, ``write``...), so later reads of an
   edited file make earlier ones stale (:mod:`jevctx.supersede`)
@@ -174,6 +176,9 @@ class SidecarState:
         profile = body.get("profile", self.config.profile)
         if not isinstance(profile, bool):
             raise ValueError("profile must be a boolean")
+        intent = body.get("intent")
+        if intent is not None and not isinstance(intent, str):
+            raise ValueError("intent must be a string")
         tool = str(body.get("tool") or "tool")
         call_id = str(body.get("call_id") or "")
         session = self.session(body.get("session"))
@@ -186,7 +191,7 @@ class SidecarState:
             result = admit(
                 text, Origin(source=f"tool:{tool}", ref=call_id or None, turn=turn),
                 task_digest=task[:TASK_DIGEST_CHARS], turn=turn, client=session.client,
-                store=session.store, log=session.log, config=config,
+                store=session.store, log=session.log, config=config, intent=intent,
             )
         except JevError:
             # Fail open: an unreachable scorer must never cost the agent its output.

@@ -25,6 +25,9 @@
  *                served their purpose become pointers, when the sidecar's price
  *                arithmetic says the cache break pays. Replacements are request-local
  *                (OpenCode's stored session is untouched) and reapplied on every request.
+ *   JEV_INTENT   1 judges each output against what the model said it was doing when it made
+ *                the call (the text, else the reasoning, of the same assistant message) as
+ *                well as the task
  *
  * Every tool call's arguments go to the sidecar too -- with the output for gated tools,
  * on their own (/observe) for the rest -- so it knows what each output viewed, ran or
@@ -45,6 +48,7 @@ const gatedTools = new Set((process.env.JEV_TOOLS ?? "bash,read,grep,glob,list")
 const maxElideFraction = process.env.JEV_MAX_ELIDE_FRACTION ? Number(process.env.JEV_MAX_ELIDE_FRACTION) : undefined;
 const profile = process.env.JEV_PROFILE ? process.env.JEV_PROFILE === "1" : undefined;
 const workarea = process.env.JEV_WORKAREA === "1";
+const withIntent = process.env.JEV_INTENT === "1";
 
 // OpenCode wraps a read as "<path>…</path>\n<type>file</type>\n<content>\n…\n\n(Showing lines
 // 1-2000 of 3000. Use offset=2001 to continue.)\n</content>". The wrapper and the notice tell the
@@ -67,6 +71,29 @@ const compacted = new Map<string, Record<string, string>>();
 const estimate = (text: string) => Math.ceil(text.length / 4);
 const turns = new Map<string, number>();
 const sessionName = (sessionID: string) => process.env.JEV_SESSION ?? `oc-${sessionID}`;
+
+// What the model said before each call. Parts stream in as events: the latest text and
+// reasoning of every assistant message, and, when a tool part first appears, a snapshot
+// of its message's words taken for that call. A tool part only ever belongs to an
+// assistant message, so a user's text never becomes an intent.
+const said = new Map<string, { text?: string; reasoning?: string }>();
+const intents = new Map<string, string>();
+const INTENT_CHARS = 2000;
+function remember(part: any): void {
+	if (part.type === "text" || part.type === "reasoning") {
+		if (part.synthetic || typeof part.text !== "string") return;
+		const words = said.get(part.messageID) ?? {};
+		words[part.type as "text" | "reasoning"] = part.text;
+		said.delete(part.messageID); // re-insert: the map stays in last-updated order
+		said.set(part.messageID, words);
+		if (said.size > 256) said.delete(said.keys().next().value as string);
+	} else if (part.type === "tool" && !intents.has(part.callID)) {
+		const words = said.get(part.messageID);
+		const intent = (words?.text?.trim() || words?.reasoning?.trim() || "").slice(-INTENT_CHARS);
+		if (intent) intents.set(part.callID, intent);
+		if (intents.size > 256) intents.delete(intents.keys().next().value as string);
+	}
+}
 
 async function call(path: string, body: Record<string, unknown>, signal?: AbortSignal): Promise<any> {
 	if (!baseUrl) throw new Error("JEV_URL is not set");
@@ -141,6 +168,10 @@ export const JevPlugin: Plugin = async ({ directory }) => {
 
 	return {
 		tool: tools,
+
+		event: async ({ event }) => {
+			if (withIntent && event.type === "message.part.updated") remember(event.properties.part);
+		},
 
 		"chat.message": async (input, output) => {
 			if (!tasks.has(input.sessionID)) {
@@ -220,6 +251,8 @@ export const JevPlugin: Plugin = async ({ directory }) => {
 				console.error(`[jev] observe failed: ${(error as Error).message}`));
 			if (!gatedTools.has(input.tool) || !task || typeof output.output !== "string") return void (await observe());
 			const [head, body, tail] = split(output.output);
+			const intent = intents.get(input.callID);
+			intents.delete(input.callID);
 			if (!body.trim()) return void (await observe());
 			try {
 				const result = await call("/admit", {
@@ -229,6 +262,7 @@ export const JevPlugin: Plugin = async ({ directory }) => {
 					mode,
 					max_elide_fraction: maxElideFraction,
 					profile,
+					intent,
 				});
 				if (mode === "on" && result.text !== body) output.output = head + result.text + tail;
 			} catch (error) {

@@ -44,7 +44,8 @@ from jevctx.types import (
 __all__ = [
     "GateConfig", "DEFAULT_GATE_CONFIG", "AdmitResult", "admit", "retrieve", "render_records", "expand", "reconstruct",
     "format_pointer", "parse_pointer", "find_pointers",
-    "ADMIT_QUESTION", "RETRIEVE_QUESTION", "EXPAND_TOOL_SCHEMA",
+    "ADMIT_QUESTION", "ADMIT_INTENT_QUESTION", "RETRIEVE_QUESTION", "EXPAND_TOOL_SCHEMA",
+    "INTENT_MAX_CHARS", "intent_digest",
 ]
 
 
@@ -65,6 +66,42 @@ ADMIT_QUESTION = Noul(
     true="The item carries information a later step may need.",
     false="The item is noise that can be recovered from the store if ever needed.",
 )
+
+#: ADMIT_QUESTION when the call's intent is known: what the agent was looking for when
+#: it made the call sharpens the judgement both ways. Output that answers it is kept
+#: even if it looks like noise; output that bears on neither it nor the task can go.
+ADMIT_INTENT_QUESTION = Noul(
+    instructions=(
+        "The agent made the tool call that produced this item while doing `intent`, "
+        "as part of the task described in `task`. Will the agent need this item? Answer "
+        "true if it bears on what the agent was looking for in `intent`, or contains "
+        "facts, identifiers, errors, results, or decisions a later step of `task` may "
+        "have to refer back to. Answer false if it is unrelated to both, or is progress "
+        "noise, repeated boilerplate, or formatting with no retained content."
+    ),
+    true="The item bears on the agent's intent or carries information a later step may need.",
+    false="The item is unrelated to the intent and the task, and can stay in the store.",
+)
+
+#: How much of the agent's words ``intent_digest`` keeps: the end, nearest the call.
+INTENT_MAX_CHARS = 600
+
+
+def intent_digest(text: str | None, max_chars: int = INTENT_MAX_CHARS) -> str | None:
+    """The agent's stated intent for a call, whitespace-collapsed and cut to its end.
+
+    What a model writes just before a tool call ("Let me look at how parse_month
+    validates its input") is the best statement of why it made the call, so a long
+    message keeps its last ``max_chars``, starting at a word.
+    """
+    if not text:
+        return None
+    flat = " ".join(text.split())
+    if len(flat) > max_chars:
+        cut = flat[-max_chars:]
+        flat = cut[cut.find(" ") + 1:] if " " in cut else cut
+    return flat or None
+
 
 RETRIEVE_QUESTION = Noul(
     instructions=(
@@ -232,11 +269,17 @@ def admit(
     store: MemoryStore,
     log: ShadowLog,
     config: GateConfig = DEFAULT_GATE_CONFIG,
+    intent: str | None = None,
 ) -> AdmitResult:
     """Gate one piece of raw output on its way into the work area.
 
     Returns the text to append, with low-scoring runs replaced by pointers. The
     elided content is in ``store``; nothing is destroyed.
+
+    ``intent`` is what the agent was looking for when it made the call: its own words
+    before the call, or an argument it filled in. Given one, the judge is asked
+    ``ADMIT_INTENT_QUESTION`` with the intent in its state. Thresholds fitted without
+    an intent may not fit with one; calibrate each separately.
     """
     if config.gate_on != "keep" and not (config.profile and config.gate_on.startswith("role:")):
         raise ValueError('gate_on must be "keep", or "role:<name>" with profile=True')
@@ -251,17 +294,19 @@ def admit(
                            result_tokens=original_tokens)
 
     items = [ScoreItem.from_segment(s) for s in segments]
+    intent = intent_digest(intent)
+    keep_question = ADMIT_INTENT_QUESTION if intent else ADMIT_QUESTION
     profiles: dict[str, Profile] = {}
     if config.profile:
-        found = profile_items(client, task_digest, items, keep_question=ADMIT_QUESTION,
-                              max_workers=config.max_workers)
+        found = profile_items(client, task_digest, items, keep_question=keep_question,
+                              max_workers=config.max_workers, intent=intent)
         profiles = {p.item_id: p for p in found}
         results = [ScoreResult(item_id=p.item_id, score=_gate_score(p, config.gate_on),
                                failed=p.failed, error=p.error, batch_index=p.batch_index)
                    for p in found]
     else:
-        results = score_items(client, task_digest, items, ADMIT_QUESTION,
-                              max_workers=config.max_workers)
+        results = score_items(client, task_digest, items, keep_question,
+                              max_workers=config.max_workers, intent=intent)
     by_id = {r.item_id: r for r in results}
 
     # Decide per segment, then check the tripwire before acting on any of it.
@@ -293,6 +338,8 @@ def admit(
 
     for seg, drop, floor, flagged in zip(segments, elide_flags, floors, quarantine, strict=True):
         labels: dict[str, Any] = {"segment_kind": seg.kind}
+        if intent:
+            labels["intent"] = intent
         if seg.id in profiles:
             labels["profile"] = profiles[seg.id].to_dict()
             labels["quarantined"] = flagged
@@ -315,7 +362,8 @@ def admit(
             meta={"profile": aggregate([profiles[s.id] for s in segments],
                                        [s.tokens for s in segments]),
                   "names": extract_names(raw),
-                  "segment_ids": [s.id for s in segments]},
+                  "segment_ids": [s.id for s in segments],
+                  **({"intent": intent} if intent else {})},
         )
         full.lifecycle = full.meta["profile"]["lifetime"]
         full_output_id = store.put(full)

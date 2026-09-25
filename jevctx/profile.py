@@ -183,17 +183,22 @@ _WRAPPER_TOKENS = estimate_tokens({"ref": "i0", "text": ""})
 _MAX_ITEMS = MAX_QUESTIONS_PER_REQUEST // len(DIMENSIONS)
 
 
-def _state(task_digest: str, items: Sequence[ScoreItem]) -> dict[str, Any]:
-    return {"task": task_digest,
-            "items": [{"ref": f"i{i}", "text": item.text} for i, item in enumerate(items)]}
+def _state(task_digest: str, items: Sequence[ScoreItem],
+           intent: str | None = None) -> dict[str, Any]:
+    state: dict[str, Any] = {"task": task_digest}
+    if intent:
+        state["intent"] = intent
+    state["items"] = [{"ref": f"i{i}", "text": item.text} for i, item in enumerate(items)]
+    return state
 
 
-def _plan(task_digest: str, items: Sequence[ScoreItem], keep: Noul) -> list[list[ScoreItem] | ScoreItem]:
+def _plan(task_digest: str, items: Sequence[ScoreItem], keep: Noul,
+          intent: str | None = None) -> list[list[ScoreItem] | ScoreItem]:
     """Greedy, order-preserving packing. A bare ScoreItem marks one too big to send."""
     per_item = {k.split(":", 1)[1]: estimate_tokens(q.to_payload())
                 for k, q in _questions("i0", keep).items()}
     item_questions, longest = sum(per_item.values()), max(per_item.values())
-    envelope = estimate_tokens(_state(task_digest, []))
+    envelope = estimate_tokens(_state(task_digest, [], intent))
     all_budget = STATE_PLUS_ALL_QUESTIONS_TOKENS * _HEADROOM
     longest_budget = STATE_PLUS_LONGEST_QUESTION_TOKENS * _HEADROOM
 
@@ -223,16 +228,18 @@ def _plan(task_digest: str, items: Sequence[ScoreItem], keep: Noul) -> list[list
 
 
 def _profile_batch(client: JevClient, task_digest: str, batch: list[ScoreItem] | ScoreItem,
-                   index: int, keep: Noul, on_error: Literal["keep", "raise"]) -> list[Profile]:
+                   index: int, keep: Noul, on_error: Literal["keep", "raise"],
+                   intent: str | None = None) -> list[Profile]:
     if isinstance(batch, ScoreItem):
         return [_failed(batch.id, "oversized", index)]
     questions = {k: q for i in range(len(batch)) for k, q in _questions(f"i{i}", keep).items()}
     try:
-        answers = client.ask(_state(task_digest, batch), questions)
+        answers = client.ask(_state(task_digest, batch, intent), questions)
     except JevRejectedError as exc:
         if len(batch) > 1:
             return [p for item in batch
-                    for p in _profile_batch(client, task_digest, [item], index, keep, on_error)]
+                    for p in _profile_batch(client, task_digest, [item], index, keep, on_error,
+                                            intent)]
         if on_error == "raise":
             raise
         return [replace(_failed(batch[0].id, f"{type(exc).__name__}: {exc}", index),
@@ -247,14 +254,18 @@ def _profile_batch(client: JevClient, task_digest: str, batch: list[ScoreItem] |
 
 def profile_items(client: JevClient, task_digest: str, items: Sequence[ScoreItem], *,
                   keep_question: Noul, max_workers: int = 8,
-                  on_error: Literal["keep", "raise"] = "keep") -> list[Profile]:
-    """Profile every item, in input order. Worker count never changes the answers."""
+                  on_error: Literal["keep", "raise"] = "keep",
+                  intent: str | None = None) -> list[Profile]:
+    """Profile every item, in input order. Worker count never changes the answers.
+
+    ``intent`` goes into every request's state, as in :func:`jevctx.scorer.build_state`.
+    """
     if not items:
         return []
-    plan = _plan(task_digest, items, keep_question)
+    plan = _plan(task_digest, items, keep_question, intent)
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = [pool.submit(_profile_batch, client, task_digest, batch, index,
-                               keep_question, on_error)
+                               keep_question, on_error, intent)
                    for index, batch in enumerate(plan)]
         by_id = {p.item_id: p for future in futures for p in future.result()}
     return [by_id[item.id] for item in items]
