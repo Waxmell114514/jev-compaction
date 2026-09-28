@@ -176,3 +176,17 @@ def test_recall_takes_a_higher_bar_for_proactive_use(tmp_path):
     assert state.recall({"session": "s", "query": "the change to a.py", "turn": 9})["hits"]
     assert not state.recall({"session": "s", "query": "the change to a.py", "turn": 9,
                              "threshold": 0.6})["hits"]
+
+
+def test_recall_judges_against_the_task_it_is_given(tmp_path):
+    seen = []
+
+    def answer(state, questions, key):
+        seen.append(str(state))
+        return 0.9
+
+    state = SidecarState(tmp_path, GateConfig(), client_factory=lambda: FakeJevClient(answer))
+    state.observe({"session": "s", "tool": "edit", "call_id": "c1", "turn": 3,
+                   "args": {"filePath": "/testbed/a.py", "oldString": "x = 1", "newString": "x = 2"}})
+    state.recall({"session": "s", "query": "the change to a.py", "turn": 9, "task": "NEW ISSUE"})
+    assert seen and all("NEW ISSUE" in s for s in seen)

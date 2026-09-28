@@ -122,6 +122,8 @@ ARMS: dict[str, dict] = {
 ARMS["jev0"] = ARMS["jev"]
 # ``jev`` plus recall on the agent's behalf: each new issue is also a recall query.
 ARMS["jevp"] = {"plugin": {**ARMS["jev"]["plugin"], "JEV_PROACTIVE": "1"}, "compaction": {}}
+# The same, run again after proactive recall began passing the new message as the task.
+ARMS["jevp2"] = ARMS["jevp"]
 
 
 def sh(args: list[str], **kwargs) -> subprocess.CompletedProcess:

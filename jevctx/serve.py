@@ -29,8 +29,9 @@ Endpoints (JSON in, JSON out):
 - ``POST /expand`` ``{session, id, turn}`` → ``{text}``, headed by a note if a later
   action made that output out of date
 - ``POST /recall`` ``{session, query, turn, k?, type?, role?, name?, source?, threshold?,
-  budget?}`` → ``{text, hits: [{id, score, truncated}]}``; a harness recalling on the
-  agent's behalf (on each new user message) asks for a higher ``threshold``
+  budget?, task?}`` → ``{text, hits: [{id, score, truncated}]}``; a harness recalling on
+  the agent's behalf (on each new user message) asks for a higher ``threshold`` and
+  passes that message as the ``task``: the session's task is still the previous one
 - ``POST /workarea`` ``{session, turn, recent, task?, items: [{id, kind, tokens, text?,
   tool?, call_id?}]}`` → ``{replacements: {id: text}, decision}``: the transcript's
   tail is offered for compaction (:mod:`jevctx.workarea`); apply every replacement
@@ -276,9 +277,13 @@ class SidecarState:
         threshold, budget = body.get("threshold", 0.4), body.get("budget", 4000)
         if not isinstance(threshold, int | float) or not 0 <= threshold <= 1 or type(budget) is not int:
             raise ValueError("threshold must be a number in [0, 1] and budget an integer")
+        task = body.get("task")
+        if task is not None and not isinstance(task, str):
+            raise ValueError("task must be a string")
         session = self.session(body.get("session"))
         hits = recall(query, store=session.store, client=session.client, log=session.log,
-                      turn=turn, task=session.task, k=k, threshold=float(threshold),
+                      turn=turn, task=session.task if task is None else task, k=k,
+                      threshold=float(threshold),
                       budget_tokens=budget,
                       outdated=lambda r: self._outdated(session, r.origin.ref), **filters)
         with session.lock:

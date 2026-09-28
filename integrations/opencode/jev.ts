@@ -199,6 +199,8 @@ export const JevPlugin: Plugin = async ({ directory }) => {
 				const found = await call("/recall", {
 					session: sessionName(input.sessionID),
 					query: first.text.slice(0, 2000),
+					// The sidecar's task is still the previous message's until a tool runs.
+					task: first.text,
 					turn: turns.get(input.sessionID) ?? turnOffset,
 					k: 3,
 					threshold: 0.6,
