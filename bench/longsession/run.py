@@ -9,6 +9,12 @@ session's context carries everything from earlier issues, and, with a capped con
 window, OpenCode has to manage it: its own LLM summary (``off``), plus pruning of old
 tool outputs (``prune``), or the jev plugin in front of both (``jev``).
 
+With ``--revisit`` a chain is ``N`` issues and then the same ``N`` again: the agent is
+told it worked on the issue earlier in the session and that its change was lost when
+the repository was reset (lost work, a reset branch, the same fix needed twice).
+Here earlier context is worth something, and the second attempt has a natural
+baseline, the first.
+
 Issues from one repository and version share an environment, so a chain runs in the
 image of its first issue, and every issue is graded in a fresh container of that
 image, checked out at its own base commit (``--validate`` grades the gold patches
@@ -93,6 +99,18 @@ no longer there, and files may differ from what you saw before.
 Resolve this issue the same way: edit non-test source files, check your work if you \
 like, do not modify existing tests, and reply with a one-paragraph summary when done."""
 
+REVISIT = """Your change for the previous issue has been saved. The repository at /testbed has \
+been reset to commit {commit}. The next issue is one you already worked on earlier in \
+this session: the change you made then was lost when the repository was reset, so it has \
+to be made again.
+
+<issue>
+{problem}
+</issue>
+
+Resolve it again: edit non-test source files, check your work if you like, do not modify \
+existing tests, and reply with a one-paragraph summary when done."""
+
 ARMS: dict[str, dict] = {
     "off": {"plugin": None, "compaction": {}},
     "prune": {"plugin": None, "compaction": {"prune": True}},
@@ -110,8 +128,10 @@ def docker_exec(name: str, command: str, **kwargs) -> subprocess.CompletedProces
     return sh(["docker", "exec", "-w", "/testbed", name, "bash", "-c", command], **kwargs)
 
 
-def build_chains(rows: list[dict], groups: list[str], length: int, seed: int) -> list[dict]:
-    """One chain per ``repo@version``: ``length`` issues, sampled, in reported order."""
+def build_chains(rows: list[dict], groups: list[str], length: int, seed: int,
+                 revisit: bool = False) -> list[dict]:
+    """One chain per ``repo@version``: ``length`` issues, sampled, in reported order;
+    with ``revisit``, followed by the same issues again."""
     chains = []
     for group in groups:
         repo, _, version = group.partition("@")
@@ -120,7 +140,9 @@ def build_chains(rows: list[dict], groups: list[str], length: int, seed: int) ->
             raise SystemExit(f"{group}: only {len(pool)} issues")
         picked = random.Random(f"{seed}:{group}").sample(pool, length)
         picked.sort(key=lambda r: r["created_at"])
-        chains.append({"id": f"{repo.split('/')[1]}-{version}-s{seed}",
+        if revisit:
+            picked += [{**r, "revisit": True} for r in picked]
+        chains.append({"id": f"{repo.split('/')[1]}-{version}-s{seed}" + ("-rv" if revisit else ""),
                        "image": IMAGE.format(picked[0]["instance_id"]),
                        "issues": picked})
     return chains
@@ -220,8 +242,8 @@ def run_issue(name: str, arm: str, args, chain_dir: Path, index: int, issue: dic
     task_dir = chain_dir / f"{index:02d}-{issue['instance_id']}"
     task_dir.mkdir(parents=True, exist_ok=True)
     reset_to(name, issue["base_commit"])
-    prompt = (FIRST.format(problem=issue["problem_statement"]) if session_id is None else
-              NEXT.format(problem=issue["problem_statement"], commit=issue["base_commit"][:12]))
+    template = FIRST if session_id is None else REVISIT if issue.get("revisit") else NEXT
+    prompt = template.format(problem=issue["problem_statement"], commit=issue["base_commit"][:12])
     (chain_dir / "prompt.txt").write_text(prompt, encoding="utf-8")
     plugin, jev_url = ARMS[arm]["plugin"], args.arm_urls.get(arm, args.jev_url)
     extra = {}
@@ -264,6 +286,7 @@ def run_issue(name: str, arm: str, args, chain_dir: Path, index: int, issue: dic
     docker_exec(name, "git reset -q")
     (task_dir / "patch.diff").write_text(patch, encoding="utf-8")
     return {"index": index, "instance_id": issue["instance_id"], "arm": arm, "model": args.model,
+            "revisit": bool(issue.get("revisit")),
             "exit_code": proc.returncode, "timed_out": proc.returncode == 124,
             "started_ms": started_ms, "ended_ms": int(time.time() * 1000),
             "elapsed_s": round(elapsed, 1), "patch_lines": patch.count("\n"), **usage}
@@ -404,6 +427,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--groups", required=True, help="repo@version,... one chain each")
     parser.add_argument("--chain", type=int, default=8, help="Issues per chain")
+    parser.add_argument("--revisit", action="store_true",
+                        help="Follow the chain's issues with the same issues again")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--exclude", nargs="*", default=[], help="Instance ids to leave out")
     parser.add_argument("--arms", default="off,prune,jev")
@@ -431,7 +456,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"unknown arms: {sorted(set(arms) - set(ARMS))}")
     rows = [json.loads(line) for line in args.dataset.open(encoding="utf-8")]
     rows = [r for r in rows if r["instance_id"] not in set(args.exclude)]
-    chains = build_chains(rows, args.groups.split(","), args.chain, args.seed)
+    chains = build_chains(rows, args.groups.split(","), args.chain, args.seed, args.revisit)
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "chains.json").write_text(json.dumps(
         [{"id": c["id"], "image": c["image"], "issues": [i["instance_id"] for i in c["issues"]]}

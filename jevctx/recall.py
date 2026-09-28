@@ -117,7 +117,9 @@ def card(record: Record, query: str, budget_tokens: int = 250, outdated: str = "
     and whether a later action made it out of date."""
     profile = record.meta.get("profile") or {}
     names = ", ".join(record.meta.get("names", [])[:12])
-    header = (f"[{profile.get('role', '?')}, {profile.get('type', '?')}] "
+    label = "the agent's own edit" if record.kind == "action" else \
+        f"{profile.get('role', '?')}, {profile.get('type', '?')}"
+    header = (f"[{label}] "
               f"{record.origin.source} turn {record.created_turn}"
               + (f"; mentions {names}" if names else "")
               + (f"; OUT OF DATE: {outdated}" if outdated else ""))

@@ -154,3 +154,16 @@ def test_an_edit_makes_an_earlier_read_out_of_date(sidecar, tmp_path):
     # Relations persist with the session's store.
     reloaded = SidecarState(tmp_path, GateConfig(), client_factory=keep_noise_client).session("r")
     assert reloaded.relations.status("c1").kind == "stale"
+
+
+def test_an_edit_is_kept_verbatim_and_recall_finds_it(tmp_path):
+    from jevctx.serve import action_record
+
+    assert action_record("bash", "c0", {"command": "ls"}, 1) is None
+    state = SidecarState(tmp_path, GateConfig(), client_factory=lambda: FakeJevClient(lambda *a: 0.9))
+    state.observe({"session": "s", "tool": "edit", "call_id": "c1", "turn": 3,
+                   "args": {"filePath": "/testbed/src/dates/parser.py",
+                            "oldString": "    return month",
+                            "newString": "    if not 1 <= month <= 12:\n        raise ValueError(month)\n    return month"}})
+    found = state.recall({"session": "s", "query": "my range check fix in parser.py", "turn": 40})
+    assert "raise ValueError(month)" in found["text"] and len(found["hits"]) == 1

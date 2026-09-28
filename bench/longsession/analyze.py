@@ -40,15 +40,17 @@ def issue_of_turn(chain: dict, turn: int) -> int | None:
 def memory_use(chain: dict, sidecar: Path) -> dict:
     """expand and recall calls, and how many reached output from an earlier issue."""
     folder = sidecar / chain["jev_session"]
-    records = {}
+    records, actions = {}, set()
     memory = folder / "memory.jsonl"
     if memory.exists():
         for line in memory.open(encoding="utf-8"):
             record = json.loads(line).get("record") or {}
             if "id" in record:
                 records[record["id"]] = (record.get("origin") or {}).get("turn", 0)
+                if record.get("kind") == "action":
+                    actions.add(record["id"])
     counts = {"expand": 0, "expand_earlier_issue": 0, "recall_hits": 0,
-              "recall_hits_earlier_issue": 0}
+              "recall_hits_earlier_issue": 0, "recall_hits_own_edits": 0}
     shadow = folder / "shadow.jsonl"
     if not shadow.exists():
         return counts
@@ -62,6 +64,8 @@ def memory_use(chain: dict, sidecar: Path) -> dict:
         else:
             continue
         counts[key] += 1
+        if key == "recall_hits" and entry.get("item_id") in actions:
+            counts["recall_hits_own_edits"] += 1
         now = issue_of_turn(chain, entry.get("turn", 0))
         origin_turn = records.get(entry.get("item_id"))
         then = issue_of_turn(chain, origin_turn) if origin_turn else None
@@ -104,6 +108,9 @@ def summarise(arm: str, chains: dict[str, dict], sidecar: Path | None) -> dict:
         "timeouts": sum(i["timed_out"] for i in issues),
         "empty_patches": sum(i["patch_lines"] == 0 for i in issues),
     }
+    again = revisits(chains)
+    if again:
+        out["revisits"] = again
     jev = [c["jev"] for c in chains.values() if c.get("jev")]
     if jev:
         work = [j.get("workarea") or {} for j in jev]
@@ -125,6 +132,40 @@ def summarise(arm: str, chains: dict[str, dict], sidecar: Path | None) -> dict:
                     use[key] += value
             out["jev"].update(use)
     return out
+
+
+def revisits(chains: dict[str, dict]) -> dict | None:
+    """Each revisited issue against its first attempt in the same session."""
+    pairs = []
+    for chain in chains.values():
+        first = {i["instance_id"]: i for i in chain["issues"] if not i.get("revisit")}
+        for issue in chain["issues"]:
+            if issue.get("revisit") and issue["instance_id"] in first:
+                before = first[issue["instance_id"]]
+                between = sum(i.get("compactions", 0) for i in chain["issues"]
+                              if before["index"] <= i["index"] < issue["index"])
+                pairs.append((before, issue, between))
+    if not pairs:
+        return None
+    ratios = sorted(b["turns"] / max(a["turns"], 1) for a, b, _ in pairs)
+
+    def tools(issue: dict, name: str) -> int:
+        return (issue.get("tool_calls") or {}).get(name, 0)
+
+    return {
+        "pairs": len(pairs),
+        "resolved_first": sum(a["resolved"] for a, _, _ in pairs),
+        "resolved_again": sum(b["resolved"] for _, b, _ in pairs),
+        "turns_first": sum(a["turns"] for a, _, _ in pairs),
+        "turns_again": sum(b["turns"] for _, b, _ in pairs),
+        "median_turn_ratio": round(ratios[len(ratios) // 2], 3),
+        "cost_first": round(sum(a["cost_usd"] for a, _, _ in pairs), 4),
+        "cost_again": round(sum(b["cost_usd"] for _, b, _ in pairs), 4),
+        "compactions_in_between": sum(n for _, _, n in pairs),
+        "revisits_after_a_compaction": sum(n > 0 for _, _, n in pairs),
+        "recall_calls_again": sum(tools(b, "recall") for _, b, _ in pairs),
+        "expand_calls_again": sum(tools(b, "expand") for _, b, _ in pairs),
+    }
 
 
 def paired(chains: dict[str, dict[str, dict]], arm: str, base: str) -> dict:

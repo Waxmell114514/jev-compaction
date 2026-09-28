@@ -23,7 +23,9 @@ Endpoints (JSON in, JSON out):
   that as well as the task
 - ``POST /observe`` ``{session, tool, call_id, args, turn, cwd?}`` → ``{relations}``: a
   tool call the gate does not see (``edit``, ``write``...), so later reads of an
-  edited file make earlier ones stale (:mod:`jevctx.supersede`)
+  edited file make earlier ones stale (:mod:`jevctx.supersede`). An edit's arguments
+  are also kept, verbatim, as an ``action`` record: ``recall`` finds the agent's own
+  changes after the conversation has lost them
 - ``POST /expand`` ``{session, id, turn}`` → ``{text}``, headed by a note if a later
   action made that output out of date
 - ``POST /recall`` ``{session, query, turn, k?, type?, role?, name?, source?}`` →
@@ -58,8 +60,9 @@ from jevctx.profile import ROLE_QUESTION, TYPE_QUESTION
 from jevctx.recall import recall, render_hits
 from jevctx.shadow import ShadowLog
 from jevctx.store import JsonlStore
-from jevctx.supersede import Relation, SupersessionIndex, note_for
-from jevctx.types import JevClient, JevError, MemoryStore, Origin
+from jevctx.supersede import WRITE_TOOLS, Relation, SupersessionIndex, note_for
+from jevctx.tokens import estimate_tokens
+from jevctx.types import JevClient, JevError, MemoryStore, Origin, Record, content_id
 from jevctx.workarea import TailItem, WorkArea, WorkAreaConfig
 
 __all__ = ["Session", "SidecarState", "make_server", "main"]
@@ -89,6 +92,31 @@ class Session:
     errors: int = 0
     original_tokens: int = 0
     result_tokens: int = 0
+
+
+#: The argument that names the file, by the spellings harnesses use.
+_PATH_ARGS = ("filePath", "file_path", "path", "filename")
+
+
+def action_record(tool: str, call_id: str, args: dict[str, Any], turn: int) -> Record | None:
+    """The agent's own edit as a memory record: its arguments, verbatim.
+
+    A summary of the session keeps what an edit was for and loses the exact lines;
+    this keeps the lines, so ``recall`` can hand them back when the same change is
+    needed again (lost work, a reset branch, a backport)."""
+    if tool.lower() not in WRITE_TOOLS:
+        return None
+    path = next((args[k] for k in _PATH_ARGS if isinstance(args.get(k), str)), "")
+    body = [f"{key}:\n{value}" for key, value in args.items()
+            if isinstance(value, str) and key not in _PATH_ARGS and value.strip()]
+    if not body:
+        return None
+    text = f"{tool} {path}".strip() + "\n" + "\n".join(body)
+    names = [path, path.rsplit("/", 1)[-1]] if path else []
+    return Record(id=content_id(text, salt=call_id, prefix="a"), text=text, kind="action",
+                  origin=Origin(source=f"tool:{tool}", ref=call_id, turn=turn),
+                  tokens=estimate_tokens(text), created_turn=turn,
+                  summary=f"your own {tool} of {path or 'a file'}", meta={"names": names})
 
 
 class SidecarState:
@@ -134,6 +162,10 @@ class SidecarState:
         if not isinstance(args, dict) or not isinstance(call_id, str) or not call_id:
             return []
         cwd = body.get("cwd")
+        action = action_record(str(body.get("tool") or ""), call_id, args,
+                               turn if type(turn) is int else 0)
+        if action is not None:
+            session.store.put(action)
         with session.lock:
             if isinstance(cwd, str) and cwd and session.relations.cwd is None:
                 session.relations.cwd = cwd
