@@ -255,7 +255,9 @@ def render_hits(hits: Sequence[RecallHit]) -> str:
         note = (f"; excerpt of {hit.record.tokens} tokens, expand id={hit.record.id} for all"
                 if hit.truncated else "")
         warning = f"; out of date: {hit.outdated}" if hit.outdated else ""
+        label = "your own edit" if hit.record.kind == "action" else \
+            f"{profile.get('role', '?')}, {profile.get('type', '?')}"
         parts.append(f"[[record id={hit.record.id} from {hit.record.origin.source} "
-                     f"turn {hit.record.created_turn}; {profile.get('role', '?')}, "
-                     f"{profile.get('type', '?')}; match {hit.score:.2f}{warning}{note}]]\n{hit.text}")
+                     f"turn {hit.record.created_turn}; {label}; match {hit.score:.2f}{warning}{note}]]\n"
+                     f"{hit.text}")
     return "\n\n".join(parts)

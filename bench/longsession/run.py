@@ -28,7 +28,9 @@ Arms:
   sidecar is told of every reset, so outputs from before it are out of date. Its
   sidecar runs with ``--pressure-tokens``, so outputs go to pointers before the window
   forces OpenCode's summary
-- ``jev0``: the same without window pressure (point it at a second sidecar with
+- ``jevp``: ``jev`` recalling on the agent's behalf (``JEV_PROACTIVE``): each new issue is
+  also a ``recall`` query, and what it finds is appended to the issue
+- ``jev0``: ``jev`` without window pressure (point it at a second sidecar with
   ``--arm-url jev0=...``): the price check alone decides
 
 Setup, as for bench/swebench (an internal network whose only exit is egress.py)::
@@ -118,6 +120,8 @@ ARMS: dict[str, dict] = {
                        "JEV_WORKAREA": "1"}, "compaction": {}},
 }
 ARMS["jev0"] = ARMS["jev"]
+# ``jev`` plus recall on the agent's behalf: each new issue is also a recall query.
+ARMS["jevp"] = {"plugin": {**ARMS["jev"]["plugin"], "JEV_PROACTIVE": "1"}, "compaction": {}}
 
 
 def sh(args: list[str], **kwargs) -> subprocess.CompletedProcess:

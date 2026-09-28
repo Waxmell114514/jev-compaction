@@ -28,6 +28,10 @@
  *   JEV_TURN_OFFSET  turns already taken in this session by earlier processes, when a
  *                session is continued with `opencode run -s` (default 0), so the sidecar's
  *                turn numbers keep rising
+ *   JEV_PROACTIVE 1 recalls on the agent's behalf: each new user message is also a `recall`
+ *                query (at a higher bar), and what it finds -- earlier output, the agent's own
+ *                earlier edits -- is appended to that message, verbatim. Agents rarely call
+ *                `recall` of their own accord.
  *   JEV_INTENT   1 judges each output against what the model said it was doing when it made
  *                the call (the text, else the reasoning, of the same assistant message) as
  *                well as the task
@@ -53,6 +57,7 @@ const profile = process.env.JEV_PROFILE ? process.env.JEV_PROFILE === "1" : unde
 const workarea = process.env.JEV_WORKAREA === "1";
 const withIntent = process.env.JEV_INTENT === "1";
 const turnOffset = Number(process.env.JEV_TURN_OFFSET ?? 0) || 0;
+const proactive = process.env.JEV_PROACTIVE === "1";
 
 // OpenCode wraps a read as "<path>…</path>\n<type>file</type>\n<content>\n…\n\n(Showing lines
 // 1-2000 of 3000. Use offset=2001 to continue.)\n</content>". The wrapper and the notice tell the
@@ -185,6 +190,28 @@ export const JevPlugin: Plugin = async ({ directory }) => {
 					.join("\n")
 					.trim();
 				if (text) tasks.set(input.sessionID, process.env.JEV_TASK ?? text);
+			}
+			if (!proactive || mode !== "on") return;
+			const first = output.parts.find((part) => part.type === "text" && !part.synthetic) as any;
+			if (!first?.text?.trim()) return;
+			try {
+				// Stored with the message itself, so every later request sends the same bytes.
+				const found = await call("/recall", {
+					session: sessionName(input.sessionID),
+					query: first.text.slice(0, 2000),
+					turn: turns.get(input.sessionID) ?? turnOffset,
+					k: 3,
+					threshold: 0.6,
+					budget: 3000,
+				});
+				if (found.hits?.length) {
+					first.text +=
+						"\n\n<recalled note=\"verbatim from earlier in this session, found for this message\">\n" +
+						found.text +
+						"\n</recalled>";
+				}
+			} catch (error) {
+				console.error(`[jev] proactive recall failed: ${(error as Error).message}`);
 			}
 		},
 

@@ -167,3 +167,12 @@ def test_an_edit_is_kept_verbatim_and_recall_finds_it(tmp_path):
                             "newString": "    if not 1 <= month <= 12:\n        raise ValueError(month)\n    return month"}})
     found = state.recall({"session": "s", "query": "my range check fix in parser.py", "turn": 40})
     assert "raise ValueError(month)" in found["text"] and len(found["hits"]) == 1
+
+
+def test_recall_takes_a_higher_bar_for_proactive_use(tmp_path):
+    state = SidecarState(tmp_path, GateConfig(), client_factory=lambda: FakeJevClient(lambda *a: 0.5))
+    state.observe({"session": "s", "tool": "edit", "call_id": "c1", "turn": 3,
+                   "args": {"filePath": "/testbed/a.py", "oldString": "x = 1", "newString": "x = 2"}})
+    assert state.recall({"session": "s", "query": "the change to a.py", "turn": 9})["hits"]
+    assert not state.recall({"session": "s", "query": "the change to a.py", "turn": 9,
+                             "threshold": 0.6})["hits"]
