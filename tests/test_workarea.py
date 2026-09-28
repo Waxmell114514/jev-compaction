@@ -1,3 +1,5 @@
+import pytest
+
 from jevctx.pipeline import expand, find_pointers
 from jevctx.shadow import ShadowLog
 from jevctx.store import InMemoryStore
@@ -42,6 +44,20 @@ def test_the_arithmetic_depends_on_the_cache_price_ratio():
     pays_cheap, _, _ = compaction_pays(6000, 9600, 20, CHEAP)
     assert not pays_cheap          # cache reads at 1/50 of input: the rewrite never pays
     assert not compaction_pays(100, 50_000, 20, PRICEY)[0]   # tiny saving, huge tail
+
+
+def test_the_rewrite_is_priced_at_the_cache_write_price():
+    # The rest of the tail is re-cached once: 1.25x input by default, not plain input.
+    _, _, cost = compaction_pays(6000, 9600, 20, PRICEY)
+    assert cost == pytest.approx(3600 * (3.75 - 0.3) / 1e6)
+    as_input = WorkAreaConfig(price_input=3.0, price_cache_read=0.3, price_cache_write=3.0)
+    assert compaction_pays(6000, 9600, 20, as_input)[2] == pytest.approx(3600 * 2.7 / 1e6)
+    # Near break-even the premium decides: drop 1k for 10 turns, re-cache the other 1k.
+    assert compaction_pays(1000, 2000, 10, as_input)[0]
+    assert not compaction_pays(1000, 2000, 10, PRICEY)[0]
+    hour = WorkAreaConfig(price_input=3.0, price_cache_read=0.3, price_cache_write=6.0)
+    assert compaction_pays(1000, 2000, 20, PRICEY)[0]
+    assert not compaction_pays(1000, 2000, 18, hour)[0]
 
 
 def test_stale_outputs_are_compacted_and_stay_compacted():

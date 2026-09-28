@@ -274,7 +274,7 @@ def act5_work_area(client, store, log, index: SupersessionIndex) -> None:
     rule("ACT 5  The work area: compact later, only when breaking the cache pays")
     note("Rewriting an earlier message breaks the provider's prompt cache from there on.\n"
          "Dropping S tokens pays when  S × turns left × cache price  >  the rest of the\n"
-         "tail × (input price − cache price).")
+         "tail × (cache-write price − cache price): the rest is cached again, once.")
     ls, tests, source = bytecode_listing(), pytest_output(), parser_source()
     trace = "Traceback (most recent call last):\n" + "\n".join(
         f'  File "src/dates/calendar.py", line {i}, in step_{i}' for i in range(700))
@@ -295,7 +295,7 @@ def act5_work_area(client, store, log, index: SupersessionIndex) -> None:
         return f"{relation.kind}: {relation.reason}" if relation else ""
 
     for label, config in (("$3 input, $0.30 cache read (10:1)", WorkAreaConfig(price_input=3.0, price_cache_read=0.3, min_work_tokens=1000)),
-                          ("$0.15 input, $0.003 cache read (50:1)", WorkAreaConfig(price_input=0.15, price_cache_read=0.003, min_work_tokens=1000))):
+                          ("$0.15 input, $0.003 cache read (50:1)", WorkAreaConfig(price_input=0.15, price_cache_read=0.003, price_cache_write=0.15, min_work_tokens=1000))):
         area = WorkArea(config)
         recent = ("Found it: parse_month in src/dates/parser.py has no range check. The .pyc "
                   "listing was a dead end. Editing parser.py now.")
@@ -314,7 +314,7 @@ def act5_work_area(client, store, log, index: SupersessionIndex) -> None:
     small, _, _ = compaction_pays(500, 20000, 12, WorkAreaConfig())
     note("\nOutputs made obsolete by a later call need no question; the rest are asked\n"
          "whether a later step still needs them. The traceback at the end is still needed\n"
-         "and sits behind the candidates, so a rewrite re-sends it uncached once. At 10:1\n"
+         "and sits behind the candidates, so a rewrite re-caches it once. At 10:1\n"
          "that pays back within a few turns; at 50:1 it rarely does. A small drop in front\n"
          f"of a long tail never pays ({small}). At a commit point everything so far is\n"
          "frozen, and stays cached.")

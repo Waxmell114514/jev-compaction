@@ -364,6 +364,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="Host model USD per 1M input tokens, for /workarea's arithmetic")
     parser.add_argument("--price-cache-read", type=float, default=WorkAreaConfig.price_cache_read,
                         help="Host model USD per 1M cached input tokens")
+    parser.add_argument("--price-cache-write", type=float, default=None,
+                        help="Host model USD per 1M tokens written to the cache; default "
+                             "1.25x --price-input. Pass the input price where writes cost "
+                             "plain input (DeepSeek, OpenAI before GPT-5.6)")
     parser.add_argument("--expected-turns", type=int, default=WorkAreaConfig.expected_turns)
     parser.add_argument("--thresholds", type=Path,
                         help="JSON from `python -m jevctx.calibrate --out`; overrides --keep-threshold")
@@ -378,6 +382,7 @@ def main(argv: list[str] | None = None) -> int:
                         min_gate_tokens=args.min_gate_tokens,
                         max_elide_fraction=args.max_elide_fraction)
     workarea = WorkAreaConfig(price_input=args.price_input, price_cache_read=args.price_cache_read,
+                              price_cache_write=args.price_cache_write,
                               expected_turns=args.expected_turns)
     server = make_server(SidecarState(args.data_dir, config, workarea=workarea),
                          host=args.host, port=args.port)

@@ -45,7 +45,7 @@ sidecar.
 | 1 | **Admission with a profile.** Tool output is split into segments. One Jev request asks each segment whether to keep it, what type it is (source, test output, traceback…), what role it plays (the code to change, evidence, navigation, noise…), how long it will matter, and whether it is a prompt injection. Low-value runs become a one-line pointer that says what it hides. Injections are quarantined. Optionally, each output is also judged against what the agent was looking for when it made the call (its *intent*). | [`pipeline`](jevctx/pipeline.py), [`profile`](jevctx/profile.py) |
 | 2 | **Getting it back.** `expand` returns the text behind a pointer byte for byte. `recall` finds earlier output from a loose description, even output that has left the context. It filters on the profile, shortlists lexically, and has Jev rerank. | [`pipeline`](jevctx/pipeline.py), [`recall`](jevctx/recall.py) |
 | 3 | **Supersession.** From each tool call's arguments, with no Jev call, it records which earlier outputs a later call made obsolete: the same command run again, the same lines read again, or the file edited since. | [`supersede`](jevctx/supersede.py) |
-| 4 | **The work area.** The transcript is a frozen, cached prefix plus a work area after the last commit point. Before each request, work-area outputs that have served their purpose, and obsolete outputs anywhere, become pointers, but only when `dropped × turns left × cache price` beats `rest of the tail × (input − cache price)`. The rewrite applies to the request; the stored conversation is never changed. | [`workarea`](jevctx/workarea.py) |
+| 4 | **The work area.** The transcript is a frozen, cached prefix plus a work area after the last commit point. Before each request, work-area outputs that have served their purpose, and obsolete outputs anywhere, become pointers, but only when `dropped × turns left × cache price` beats `rest of the tail × (cache-write − cache-read price)`: the rest of the tail is cached again, once. The rewrite applies to the request; the stored conversation is never changed. | [`workarea`](jevctx/workarea.py) |
 | 5 | **Calibration.** Every decision is logged. Thresholds per tool and segment kind are fitted from what the agent later used. | [`shadow`](jevctx/shadow.py), [`calibrate`](jevctx/calibrate.py) |
 
 ## What it did
@@ -172,7 +172,8 @@ python run_agent.py "Find the dependency conflict" --file tests/fixtures/npm_ins
     --prices 3 15 0.3 0 --output runs/gated
 ```
 
-`--mode off | shadow | on`; `--workarea` prices rewrites with `--prices`;
+`--mode off | shadow | on`; `--workarea` prices rewrites with `--prices` (a
+`CACHE_WRITE` of 0 means cache writes are billed as input);
 `--intent off | reply | arg` sets goal conditioning.
 `run.json` reports usage, cost, `expand` and `recall` counts, relations and
 work-area decisions.

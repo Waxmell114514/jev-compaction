@@ -24,11 +24,17 @@ This module is the second, later decision, on the harness's actual transcript::
   change)? And, per work-area output, will later steps still need it?
 - **Whether to act: the arithmetic.** Rewriting the transcript at the first
   compacted output invalidates the provider's cache from there on, so the
-  ``T`` tokens after it are billed once at the full input price instead of the
-  cache-read price. Dropping ``S`` tokens saves the cache-read price on them on
-  every remaining turn ``R``. Compact only if::
+  ``T - S`` tokens that remain after it are written into the cache again, once,
+  at the cache-write price instead of being read at the cache-read price.
+  Dropping ``S`` tokens saves the cache-read price on them on every remaining
+  turn ``R``. Compact only if::
 
-      S * R * p_cache  >  (T - S) * (p_input - p_cache)
+      S * R * p_cache  >  (T - S) * (p_write - p_cache)
+
+  ``p_write`` carries the provider's write premium: 1.25x the input price on
+  Anthropic's 5-minute cache and on OpenAI from GPT-5.6, 2x on Anthropic's
+  1-hour cache. Where writes are billed as plain input (DeepSeek, earlier OpenAI
+  models) it is the input price.
 
   With ``p_input / p_cache`` of 50 (cheap models) this almost never holds; at 10
   (typical of pricier ones) a half-stale work area pays back within a few turns.
@@ -53,6 +59,7 @@ from jevctx.scorer import score_items
 from jevctx.shadow import ShadowLog
 from jevctx.tokens import estimate_tokens
 from jevctx.types import (
+    CACHE_WRITE_MULT,
     JevClient,
     JevError,
     MemoryStore,
@@ -112,9 +119,15 @@ class TailItem:
 
 @dataclass(frozen=True)
 class WorkAreaConfig:
-    #: USD per million tokens; only the ratio matters to the decision.
+    #: USD per million tokens; only the ratios matter to the decision.
     price_input: float = 3.0
     price_cache_read: float = 0.3
+    #: What re-caching the tail after a rewrite costs. ``None`` is
+    #: ``price_input * CACHE_WRITE_MULT`` (1.25x: Anthropic's 5-minute cache, OpenAI
+    #: from GPT-5.6). Set it to ``price_input`` where writes cost plain input
+    #: (DeepSeek, earlier OpenAI models), or ``2 * price_input`` for Anthropic's
+    #: 1-hour cache.
+    price_cache_write: float | None = None
     #: Below this much work-area tool output, don't ask Jev at all.
     min_work_tokens: int = 4000
     #: Outputs Jev thinks still needed at or above this are never compacted.
@@ -142,15 +155,22 @@ class WorkAreaConfig:
     card_tokens: int = 250
     recent_chars: int = 1500
 
+    @property
+    def write_price(self) -> float:
+        if self.price_cache_write is None:
+            return self.price_input * CACHE_WRITE_MULT
+        return self.price_cache_write
+
 
 def compaction_pays(saved: int, tail_after: int, remaining_turns: int,
                     config: WorkAreaConfig) -> tuple[bool, float, float]:
     """``(pays, benefit, cost)`` in USD for dropping ``saved`` tokens from a tail of
     ``tail_after`` tokens (counted from the first rewritten item), ``remaining_turns``
-    requests before the session ends."""
+    requests before the session ends. The cost is re-caching the rest of the tail
+    at the write price where it would otherwise have been a cache read."""
     per = 1e-6
     benefit = saved * remaining_turns * config.price_cache_read * per
-    cost = max(0, tail_after - saved) * (config.price_input - config.price_cache_read) * per
+    cost = max(0, tail_after - saved) * (config.write_price - config.price_cache_read) * per
     return benefit > cost, benefit, cost
 
 

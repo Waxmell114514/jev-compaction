@@ -47,7 +47,7 @@ export TYPESAFE_API_KEY=...
 # export JEVCTX_JUDGE=llm JUDGE_BASE_URL=http://localhost:11434/v1 JUDGE_MODEL=qwen3:4b
 .venv/bin/python -m jevctx.serve --port 8765 --data-dir runs/opencode \
     --profile --gate-on role:change_site --max-elide-fraction 1.0 \
-    --price-input 3 --price-cache-read 0.3        # your model's prices, USD per 1M tokens
+    --price-input 3 --price-cache-read 0.3 --price-cache-write 3.75   # your model's prices, USD per 1M tokens
 
 # 2. install the plugin
 mkdir -p ~/.config/opencode/plugins

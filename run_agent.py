@@ -44,7 +44,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="JSON from `python -m jevctx.calibrate --out`")
     parser.add_argument("--workarea", action="store_true",
                         help="Compact the transcript's tail before each request when it pays "
-                             "(priced with --prices, else $3 input / $0.30 cache read)")
+                             "(priced with --prices, a CACHE_WRITE of 0 meaning writes cost input; "
+                             "else $3 input / $0.30 cache read / $3.75 cache write)")
     parser.add_argument("--intent", choices=("off", "reply", "arg"), default="off",
                         help="Judge each output against what the model was looking for: "
                              "its message before the call (reply), or also an optional "
@@ -102,7 +103,9 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"invalid --gate-on/--profile or thresholds file: {type(exc).__name__}")
     workarea = None
     if args.workarea:
-        workarea = WorkAreaConfig(price_input=prices.input, price_cache_read=prices.cache_read) \
+        # A CACHE_WRITE of 0 means the provider bills cache writes as input.
+        workarea = WorkAreaConfig(price_input=prices.input, price_cache_read=prices.cache_read,
+                                  price_cache_write=prices.cache_write or prices.input) \
             if prices is not None else WorkAreaConfig()
     with ExitStack() as stack:
         http = stack.enter_context(httpx.Client(

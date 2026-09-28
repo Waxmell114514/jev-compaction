@@ -80,6 +80,10 @@ point on, so it happens only when
 
     dropped tokens × turns left × cache price  >  rest of the tail × (input price − cache price)
 
+The runs below priced the re-sent tail at the input price. It is written into the
+cache again, so the code now prices it at the cache-write price (1.25× input by
+default), which declines a few more rewrites near break-even.
+
 The OpenCode plugin applies it to the request only; the stored session is never
 rewritten.
 

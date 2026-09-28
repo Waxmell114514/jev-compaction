@@ -371,7 +371,7 @@ turn 8  r2  cat src/dates/parser.py               <span class="ptr">r1 supersede
       <div class="cell c-tool" style="flex:2.2">still needed</div>
       <div class="cell c-msg" style="flex:.4"></div>
     </div>
-    <div class="legend"><span><i style="background:var(--faint)"></i>prefix, never rewritten</span><span><i style="background:var(--moved)"></i>candidates</span><span><i style="background:var(--keep)"></i>kept, re-sent uncached once if a rewrite happens</span></div>
+    <div class="legend"><span><i style="background:var(--faint)"></i>prefix, never rewritten</span><span><i style="background:var(--moved)"></i>candidates</span><span><i style="background:var(--keep)"></i>kept, cached again once if a rewrite happens</span></div>
     <p class="mod" style="margin-top:8px">jevctx/workarea.py. The next section has the arithmetic.</p>
   </div></div>
 
@@ -383,7 +383,7 @@ turn 8  r2  cat src/dates/parser.py               <span class="ptr">r1 supersede
 </div>
 
 <h2>When a rewrite pays</h2>
-<p class="note">Dropping <b>S</b> tokens saves the cache-read price on them on every remaining turn. The rewrite re-sends the rest of the tail once at the full input price. Drag the sliders.</p>
+<p class="note">Dropping <b>S</b> tokens saves the cache-read price on them on every remaining turn. The rewrite breaks the cache there, so the rest of the tail is written into it again, once, at the cache-write price. Drag the sliders.</p>
 <div class="card calc">
   <div class="ctrl">
     <label>tokens dropped <span class="row"><span>S</span><b id="vS"></b></span>
@@ -394,9 +394,11 @@ turn 8  r2  cat src/dates/parser.py               <span class="ptr">r1 supersede
       <input type="range" id="R" min="1" max="40" step="1" value="24"></label>
     <label>input price ÷ cache-read price <span class="row"><span>ratio</span><b id="vX"></b></span>
       <input type="range" id="X" min="2" max="60" step="1" value="10"></label>
+    <label>cache-write price ÷ input price <span class="row"><span>premium</span><b id="vW"></b></span>
+      <input type="range" id="W" min="1" max="2" step="0.25" value="1.25"></label>
     <div class="presets" role="group" aria-label="Price presets">
-      <button type="button" data-x="10">pricier models, 10:1</button>
-      <button type="button" data-x="50">cheap models, 50:1</button>
+      <button type="button" data-x="10" data-w="1.25">pricier models, 10:1, 1.25× writes</button>
+      <button type="button" data-x="50" data-w="1">cheap models, 50:1, writes at input</button>
     </div>
   </div>
   <div class="verdict" aria-live="polite">
@@ -459,9 +461,9 @@ turn 8  r2  cat src/dates/parser.py               <span class="ptr">r1 supersede
   var PIN=3e-6, $=function(id){return document.getElementById(id)};
   var fmt=function(n){return n.toLocaleString('en-US')};
   function update(){
-    var S=+$('S').value, rest=+$('T').value, R=+$('R').value, X=+$('X').value;
-    var pc=PIN/X, benefit=S*R*pc, cost=rest*(PIN-pc), pays=benefit>cost;
-    $('vS').textContent=fmt(S); $('vT').textContent=fmt(rest); $('vR').textContent=R; $('vX').textContent=X+':1';
+    var S=+$('S').value, rest=+$('T').value, R=+$('R').value, X=+$('X').value, W=+$('W').value;
+    var pc=PIN/X, benefit=S*R*pc, cost=rest*(W*PIN-pc), pays=benefit>cost;
+    $('vS').textContent=fmt(S); $('vT').textContent=fmt(rest); $('vR').textContent=R; $('vX').textContent=X+':1'; $('vW').textContent=W+'×';
     var top=Math.max(benefit,cost,1e-9);
     $('bB').style.width=(benefit/top*100)+'%'; $('bC').style.width=(cost/top*100)+'%';
     $('verdict').innerHTML=pays?'<span class="pays">Rewrite: it pays</span>':'<span class="nopay">Leave it: the rewrite costs more</span>';
@@ -469,9 +471,9 @@ turn 8  r2  cat src/dates/parser.py               <span class="ptr">r1 supersede
     $('detail').textContent='saves $'+benefit.toFixed(4)+' over '+R+' turns · rewrite costs $'+cost.toFixed(4)+
       ' · pays back after '+(isFinite(breakeven)?Math.ceil(breakeven):'∞')+' turns';
   }
-  ['S','T','R','X'].forEach(function(id){ $(id).addEventListener('input',update); });
+  ['S','T','R','X','W'].forEach(function(id){ $(id).addEventListener('input',update); });
   document.querySelectorAll('.presets button').forEach(function(b){
-    b.addEventListener('click',function(){ $('X').value=b.getAttribute('data-x'); update(); });
+    b.addEventListener('click',function(){ $('X').value=b.getAttribute('data-x'); $('W').value=b.getAttribute('data-w'); update(); });
   });
   update();
 })();
@@ -652,13 +654,13 @@ turn 8  r2  cat src/dates/parser.py               <span class="ptr">r1 supersede
     tag('t2',chip('Jev: served its purpose','m s'),'old'); S.jev+=150; counts();
     cap('jev','Jev · 1 question','The doc excerpt is asked whether a later step still needs it. Jev: it has <b>served its purpose</b>.','Jev: the doc has <b>served its purpose</b>.');
     await wait(2600);
-    cap('price','Price check','A rewrite breaks the prompt cache from the first change on, so it happens only when <b>dropped × turns left × cache price</b> beats <b>rest of the tail × (input − cache price)</b>.','Compact only when the saving beats <b>breaking the cache</b>.');
+    cap('price','Price check','A rewrite breaks the prompt cache from the first change on, so it happens only when <b>dropped × turns left × cache price</b> beats <b>rest of the tail × (cache-write − cache price)</b>.','Compact only when the saving beats <b>breaking the cache</b>.');
     var calc=h('div','tv-calc'); gate.appendChild(calc);
-    var lines=[['dropping','316 tok'],['× turns left','24'],['× cache read','$0.30 / M'],['= saves','$0.0023'],['rewrite: 174 tok × $2.70 / M','$0.0005']];
+    var lines=[['dropping','316 tok'],['× turns left','24'],['× cache read','$0.30 / M'],['= saves','$0.0023'],['rewrite: 174 tok × $3.45 / M','$0.0006']];
     for(var i=0;i<lines.length;i++){
       calc.appendChild(h('div','ln','<span>'+lines[i][0]+'</span><b>'+lines[i][1]+'</b>')); await wait(420);
     }
-    calc.appendChild(h('div','vd','$0.0023 > $0.0005 → compact'));
+    calc.appendChild(h('div','vd','$0.0023 > $0.0006 → compact'));
     await wait(1800);
     await compact('t1','r:1f3a','evidence, traceback: first test run','[[elided r:1f3a "out of date: superseded"]]');
     await compact('t2','r:b27c','evidence, documentation: parser guide','[[elided r:b27c "served its purpose"]]');
