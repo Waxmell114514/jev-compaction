@@ -95,6 +95,39 @@ def test_cheap_cache_declines_the_rewrite_but_still_commits():
     assert decision.cost_usd > decision.benefit_usd and area.stats["declined_compactions"] == 1
 
 
+def test_window_pressure_compacts_whatever_the_price():
+    # transcript() is 10.6k tokens: past 10k the cheap cache's "never pays" is overridden.
+    tight = WorkAreaConfig(price_input=0.15, price_cache_read=0.003, min_work_tokens=1000,
+                           pressure_tokens=10_000)
+    area, store, log = WorkArea(tight), InMemoryStore(), ShadowLog()
+    decision = area.decide(transcript(), task=TASK, recent="found it", turn=5,
+                           client=client(), store=store, log=log)
+    assert set(decision.replacements) == {"part1", "part3"}
+    assert decision.reason.startswith("window pressure") and area.stats["pressure_compactions"] == 1
+    roomy = WorkArea(WorkAreaConfig(price_input=0.15, price_cache_read=0.003,
+                                    min_work_tokens=1000, pressure_tokens=20_000))
+    assert not roomy.decide(transcript(), task=TASK, recent="found it", turn=5, client=client(),
+                            store=InMemoryStore(), log=ShadowLog()).replacements
+
+
+def test_window_pressure_revisits_outputs_declined_as_too_dear():
+    # An output a reset made obsolete was declined on price; once the window fills it
+    # goes, with no new tool output and no Jev call.
+    items = [other(0, 500), tool(1, stale=False, tokens=1000), other(2, 1000)]
+    outdated = {"call1": "stale: the work tree was reset"}.get
+    config = WorkAreaConfig(price_input=0.15, price_cache_read=0.003, min_work_tokens=1000,
+                            pressure_tokens=3000)
+    area, store, log = WorkArea(config), InMemoryStore(), ShadowLog()
+    first = area.decide(items, task=TASK, recent="", turn=3, client=client(), store=store,
+                        log=log, outdated=lambda c: outdated(c, ""))
+    assert not first.replacements
+    fake = client()
+    grown = [*items, other(3, 1000)]
+    later = area.decide(grown, task=TASK, recent="", turn=4, client=fake, store=store, log=log,
+                        outdated=lambda c: outdated(c, ""))
+    assert set(later.replacements) == {"part1"} and fake.calls == []
+
+
 def test_no_commit_point_keeps_the_work_area_open_until_overdue():
     area, store, log = WorkArea(PRICEY), InMemoryStore(), ShadowLog()
     first = area.decide(transcript(), task=TASK, recent="still looking", turn=2,

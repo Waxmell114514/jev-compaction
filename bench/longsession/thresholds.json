@@ -1,0 +1,1 @@
+{"keep_threshold": 0.05, "thresholds": {"tool:read/code": 0.075, "tool:bash": 0.03}}

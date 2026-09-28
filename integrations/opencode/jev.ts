@@ -25,6 +25,9 @@
  *                served their purpose become pointers, when the sidecar's price
  *                arithmetic says the cache break pays. Replacements are request-local
  *                (OpenCode's stored session is untouched) and reapplied on every request.
+ *   JEV_TURN_OFFSET  turns already taken in this session by earlier processes, when a
+ *                session is continued with `opencode run -s` (default 0), so the sidecar's
+ *                turn numbers keep rising
  *   JEV_INTENT   1 judges each output against what the model said it was doing when it made
  *                the call (the text, else the reasoning, of the same assistant message) as
  *                well as the task
@@ -49,6 +52,7 @@ const maxElideFraction = process.env.JEV_MAX_ELIDE_FRACTION ? Number(process.env
 const profile = process.env.JEV_PROFILE ? process.env.JEV_PROFILE === "1" : undefined;
 const workarea = process.env.JEV_WORKAREA === "1";
 const withIntent = process.env.JEV_INTENT === "1";
+const turnOffset = Number(process.env.JEV_TURN_OFFSET ?? 0) || 0;
 
 // OpenCode wraps a read as "<path>…</path>\n<type>file</type>\n<content>\n…\n\n(Showing lines
 // 1-2000 of 3000. Use offset=2001 to continue.)\n</content>". The wrapper and the notice tell the
@@ -185,7 +189,7 @@ export const JevPlugin: Plugin = async ({ directory }) => {
 
 		// One call per model request: the turn number the gate logs decisions under.
 		"chat.params": async (input) => {
-			turns.set(input.sessionID, (turns.get(input.sessionID) ?? 0) + 1);
+			turns.set(input.sessionID, (turns.get(input.sessionID) ?? turnOffset) + 1);
 		},
 
 		"experimental.chat.messages.transform": async (_input, output) => {

@@ -369,6 +369,9 @@ def main(argv: list[str] | None = None) -> int:
                              "1.25x --price-input. Pass the input price where writes cost "
                              "plain input (DeepSeek, OpenAI before GPT-5.6)")
     parser.add_argument("--expected-turns", type=int, default=WorkAreaConfig.expected_turns)
+    parser.add_argument("--pressure-tokens", type=int, default=0,
+                        help="Transcript tokens past which /workarea compacts whatever the price, "
+                             "set below where the harness would summarise to fit the window")
     parser.add_argument("--thresholds", type=Path,
                         help="JSON from `python -m jevctx.calibrate --out`; overrides --keep-threshold")
     args = parser.parse_args(argv)
@@ -383,7 +386,8 @@ def main(argv: list[str] | None = None) -> int:
                         max_elide_fraction=args.max_elide_fraction)
     workarea = WorkAreaConfig(price_input=args.price_input, price_cache_read=args.price_cache_read,
                               price_cache_write=args.price_cache_write,
-                              expected_turns=args.expected_turns)
+                              expected_turns=args.expected_turns,
+                              pressure_tokens=args.pressure_tokens)
     server = make_server(SidecarState(args.data_dir, config, workarea=workarea),
                          host=args.host, port=args.port)
     # The extension reads this line to find a port picked with --port 0.

@@ -40,6 +40,11 @@ This module is the second, later decision, on the harness's actual transcript::
   (typical of pricier ones) a half-stale work area pays back within a few turns.
   :class:`jevctx.ledger.CacheLedger` assumes the 10x case throughout; this module
   takes the prices as given.
+- **Window pressure.** The price check weighs the cache only. When the transcript
+  nears the model's window, the harness's next move is its own compaction, an LLM
+  summary that loses everything it does not mention. Past ``pressure_tokens`` a
+  rewrite into pointers, which ``expand`` and ``recall`` undo, is made whatever the
+  price.
 - **Freezing.** At a commit point, or after ``max_uncommitted_turns``, everything
   up to now becomes frozen prefix and is never considered again.
 
@@ -141,6 +146,10 @@ class WorkAreaConfig:
     #: never paid back.
     expected_turns: int = 30
     min_remaining_turns: int = 12
+    #: Transcript size (estimated tokens over every item) past which compaction goes
+    #: ahead whatever the price: set it below the point where the harness summarises
+    #: the session to fit the window. 0 turns it off.
+    pressure_tokens: int = 0
     #: Freeze the work area after this many turns without a commit point.
     max_uncommitted_turns: int = 12
     #: Outputs smaller than this are not worth a pointer.
@@ -210,7 +219,7 @@ class WorkArea:
     stats: dict[str, int] = field(default_factory=lambda: {
         "evaluations": 0, "commits": 0, "compactions": 0, "compacted_items": 0,
         "compacted_tokens": 0, "declined_compactions": 0, "resets": 0,
-        "outdated_candidates": 0, "outdated_compacted": 0})
+        "outdated_candidates": 0, "outdated_compacted": 0, "pressure_compactions": 0})
 
     # -- the decision ------------------------------------------------------- #
 
@@ -249,8 +258,9 @@ class WorkArea:
         self.stats["outdated_candidates"] += len(newly_outdated)
         self._outdated_seen |= newly_outdated
         prefix_obsolete = [i for i in items[:start] if i.id in reasons]
+        pressure = 0 < self.config.pressure_tokens <= sum(i.tokens for i in items)
         ask_jev = bool(new) and work_tool_tokens >= self.config.min_work_tokens
-        if not ask_jev and not newly_outdated:
+        if not ask_jev and not newly_outdated and not (pressure and reasons):
             if overdue and work:
                 self._commit(work[-1].id, turn)
                 return Decision("commit", dict(self.replacements), reason="overdue, nothing to score")
@@ -295,7 +305,10 @@ class WorkArea:
             pays, benefit, cost = compaction_pays(saved, tail, remaining, self.config)
             decision.saved_tokens, decision.tail_tokens = saved, tail
             decision.remaining_turns, decision.benefit_usd, decision.cost_usd = remaining, benefit, cost
-            if pays and saved > 0:
+            if (pays or pressure) and saved > 0:
+                if not pays:
+                    decision.reason = "window pressure"
+                    self.stats["pressure_compactions"] += 1
                 for item in stale:
                     self.replacements[item.id] = self._relocate(item, store, turn,
                                                                 reasons.get(item.id, ""))
