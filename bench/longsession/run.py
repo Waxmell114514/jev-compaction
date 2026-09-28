@@ -411,8 +411,10 @@ def validate(chains: list[dict], args) -> None:
     """Grade every issue's gold patch in its chain's image: is the shared environment sound?"""
     for chain in chains:
         pull(chain["image"])
-        for issue in chain["issues"]:
+        for issue in {i["instance_id"]: i for i in chain["issues"]}.values():
             task_dir = args.out / "validate" / chain["id"] / issue["instance_id"]
+            if (task_dir / "result.json").exists():
+                continue
             task_dir.mkdir(parents=True, exist_ok=True)
             (task_dir / "patch.diff").write_text(issue["patch"])
             result = grade(chain["image"], issue, issue["patch"], task_dir)

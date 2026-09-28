@@ -123,7 +123,8 @@ const GUIDANCE =
 	"low-value; the summary says what kind of output it was. Call `expand` with that id before relying " +
 	"on, quoting or editing what the pointer stands for. When you need something you saw earlier but it " +
 	"is no longer in the conversation, or you only roughly remember it, call `recall` with a description " +
-	"(and a name, type or role filter if you know one) instead of re-running the command.";
+	"(and a name, type or role filter if you know one) instead of re-running the command. `recall` also " +
+	"finds your own earlier edits, verbatim, if you need to make the same change again.";
 
 export const JevPlugin: Plugin = async ({ directory }) => {
 	if (mode === "off") return {};
