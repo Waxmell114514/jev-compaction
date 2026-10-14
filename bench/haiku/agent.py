@@ -36,7 +36,7 @@ import subprocess
 import time
 from collections.abc import Callable
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -183,6 +183,9 @@ class Policy:
     arm: str                                  # off | mask | stale | jev
     shadow: bool = False                      # off: score everything, change nothing
     mask_turns: int = 10
+    #: Estimate the requests still to come from the tasks still queued (``staleh``/``jevh``).
+    horizon: bool = False
+    prior_turns_per_issue: float = 10.0
     gate: GateConfig = field(default_factory=lambda: GateConfig(profile=True, gate_on="role:change_site"))
     workarea: WorkAreaConfig = field(default_factory=lambda: WorkAreaConfig(
         price_input=PRICES["input"], price_cache_read=PRICES["cache_read"],
@@ -260,6 +263,10 @@ class Session:
         self.turn = 0
         self.task = ""
         self.resets = 0
+        self.issue_turns: list[int] = []
+        self.horizon_issues_left: int | None = None
+        self.per_issue_turns = policy.prior_turns_per_issue
+        self.issue_started_turn = 0
 
     # -- supersession ------------------------------------------------------------- #
 
@@ -307,6 +314,12 @@ class Session:
                     else:
                         items.append(TailItem(id=item_id, kind="other", tokens=estimate_tokens(
                             json.dumps(block.get("input", "")))))
+            if self.policy.horizon and self.horizon_issues_left is not None:
+                # Requests left in this issue (at least a few) plus the queued issues'.
+                in_issue = max(3.0, self.per_issue_turns - (turn - self.issue_started_turn))
+                left = int(in_issue + self.horizon_issues_left * self.per_issue_turns)
+                self.area.config = replace(self.area.config, expected_turns=turn + left,
+                                           min_remaining_turns=max(1, left))
             try:
                 decision = self.area.decide(items, task=self.task, recent=recent, turn=turn,
                                             client=self.scorer, store=self.store, log=self.log,
@@ -340,10 +353,18 @@ class Session:
 
     # -- one task ---------------------------------------------------------------------- #
 
-    def run(self, task: str, *, max_steps: int = 60) -> dict[str, Any]:
+    def run(self, task: str, *, max_steps: int = 60, issues_left: int | None = None) -> dict[str, Any]:
+        """``issues_left`` (tasks queued after this one) lets a horizon-aware policy
+        estimate how many requests are still to come."""
         self.task = task
+        if self.policy.horizon and self.area is not None and issues_left is not None:
+            done = len(self.issue_turns)
+            per_issue = sum(self.issue_turns) / done if done else self.policy.prior_turns_per_issue
+            self.horizon_issues_left = issues_left
+            self.per_issue_turns = per_issue
         self.messages.append({"role": "user", "content": [{"type": "text", "text": task}]})
         first_request = len(self.usage)
+        self.issue_started_turn = self.turn
         counts_before = dict(self.counts)
         hidden_before = len(self.hidden)
         judge_usage = getattr(self.judge, "usage", None)
@@ -393,6 +414,7 @@ class Session:
         except anthropic.APIError as exc:
             status = f"api_error:{type(exc).__name__}"
         usage = self.usage[first_request:]
+        self.issue_turns.append(len(usage))
         delta = {k: self.counts[k] - counts_before[k] for k in COUNTERS}
         judge_tokens = (judge_usage.input_tokens - judge_before[0]) if judge_usage is not None else 0
         judge_requests = (judge_usage.requests - judge_before[1]) if judge_usage is not None else 0

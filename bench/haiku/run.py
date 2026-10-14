@@ -76,12 +76,14 @@ def build_chains(instances: list[Instance], *, length: int, count: int, seed: in
 
 def policy_for(arm: str, *, shadow: bool, mask_turns: int, gate: GateConfig,
                cliff_tokens: int) -> Policy:
-    """``stalec`` and ``jevc`` are ``stale`` and ``jev`` that also compact, whatever the
-    cache price, once the transcript nears the long-context price tier."""
-    base = arm[:-1] if arm in {"stalec", "jevc"} else arm
+    """``stalec``/``jevc`` also compact, whatever the cache price, once the transcript nears
+    the long-context price tier; ``staleh``/``jevh`` do that and estimate the turns left
+    from the issues still queued, instead of a fixed prior."""
+    base = arm[:-1] if arm in {"stalec", "jevc", "staleh", "jevh"} else arm
     if base not in {"off", "mask", "stale", "jev"}:
         raise ValueError(f"unknown arm {arm}")
-    policy = Policy(arm=base, shadow=shadow and base == "off", mask_turns=mask_turns, gate=gate)
+    policy = Policy(arm=base, shadow=shadow and base == "off", mask_turns=mask_turns, gate=gate,
+                    horizon=arm.endswith("h"))
     if base != arm:
         policy.workarea = replace(policy.workarea, pressure_tokens=cliff_tokens)
     return policy
@@ -178,7 +180,7 @@ def main(argv: list[str] | None = None) -> int:
                     session.note_reset()
                 preamble = (FIRST if index == 0 else NEXT).format(root=root)
                 result = session.run(TASK.format(preamble=preamble, problem=instance.problem_statement),
-                                     max_steps=args.max_steps)
+                                     max_steps=args.max_steps, issues_left=len(chain) - index - 1)
                 patch = workspace.model_patch(root)
                 issue_dir = run_dir / f"{index:02d}-{instance.instance_id}"
                 issue_dir.mkdir(exist_ok=True)

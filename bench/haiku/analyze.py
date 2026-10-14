@@ -16,6 +16,8 @@ import random
 from collections import defaultdict
 from pathlib import Path
 
+ORDER = ["off", "mask", "stale", "stalec", "staleh", "jev", "jevc", "jevh"]
+
 
 def load(root: Path) -> list[dict]:
     rows = []
@@ -105,8 +107,8 @@ def summarise(root: Path) -> dict:
     rows = load(root)
     chains = per_chain(rows)
     arms = sorted({arm for c in chains.values() for arm in c},
-                  key=lambda a: ["off", "mask", "stale", "stalec", "jev", "jevc"].index(a)
-                  if a in ["off", "mask", "stale", "stalec", "jev", "jevc"] else 99)
+                  key=lambda a: ORDER.index(a)
+                  if a in ORDER else 99)
     summary: dict = {"chains": len(chains), "arms": {}}
     for arm in arms:
         keys = [k for k, c in chains.items() if arm in c and "off" in c]
