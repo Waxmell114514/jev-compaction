@@ -301,11 +301,17 @@ class Session:
             for position, message in enumerate(self.messages):
                 for index, block in enumerate(message["content"]):
                     item_id = f"m{position}b{index}"
-                    if block["type"] == "tool_result":
+                    if block["type"] == "tool_result" and block["tool_use_id"] in self.tool_meta:
                         call_id = block["tool_use_id"]
                         meta = self.tool_meta[call_id]
                         items.append(TailItem(id=call_id, kind="tool", tokens=meta["tokens"],
                                               text=meta["text"], tool=meta["tool"], call_id=call_id))
+                    elif block["type"] == "tool_result":
+                        # expand/recall results and calls refused at the step limit: never
+                        # compacted (an expand undone by a compaction would loop).
+                        content = block.get("content")
+                        items.append(TailItem(id=item_id, kind="other", tokens=estimate_tokens(
+                            content if isinstance(content, str) else json.dumps(content))))
                     elif block["type"] == "text":
                         items.append(TailItem(id=item_id, kind="other",
                                               tokens=estimate_tokens(block["text"])))

@@ -99,8 +99,21 @@ class Workspace:
     def reset(self, worktree: Path, commit: str) -> None:
         """Point an existing worktree at another commit, discarding every change."""
         self.fetch(commit)
-        subprocess.run(["git", "-C", str(worktree), "checkout", "-q", "-f", "--detach", commit],
-                       check=True, capture_output=True)
+        checkout = ["git", "-C", str(worktree), "checkout", "-q", "-f", "--detach", commit]
+        if subprocess.run(checkout, capture_output=True).returncode != 0:
+            # The agent can leave the checkout in a state git refuses to leave (a stale
+            # index.lock, an unfinished merge): clear it and try once more, then rebuild.
+            lock = subprocess.run(["git", "-C", str(worktree), "rev-parse", "--git-path", "index.lock"],
+                                  capture_output=True, text=True).stdout.strip()
+            if lock:
+                Path(worktree, lock).unlink(missing_ok=True)
+            subprocess.run(["git", "-C", str(worktree), "reset", "-q", "--hard"], capture_output=True)
+            if subprocess.run(checkout, capture_output=True).returncode != 0:
+                self.remove(worktree)
+                subprocess.run(["rm", "-rf", str(worktree)], check=True)
+                with self._fetch_lock:
+                    subprocess.run(["git", "-C", str(self.mirror), "worktree", "add", "-q", "--detach",
+                                    str(worktree), commit], check=True, capture_output=True)
         subprocess.run(["git", "-C", str(worktree), "clean", "-qfdx"], capture_output=True)
 
     def python_for(self, instance: Instance) -> Path:

@@ -1,0 +1,665 @@
+{
+ "chains": 8,
+ "arms": {
+  "off": {
+   "cost": 0.464603,
+   "host_cost": 0.464603,
+   "judge_cost": 0.0,
+   "resolved": 55,
+   "issues": 80,
+   "cache_write": 802801,
+   "cache_read": 20779329,
+   "input": 1312,
+   "output": 205237,
+   "requests": 576,
+   "prompt_tokens": 21583442,
+   "long_context_requests": 10,
+   "hidden_edits": 0,
+   "hidden_rereads": 0,
+   "expands": 0,
+   "recalls": 0,
+   "edits": 88,
+   "hidden_outputs": 0,
+   "hidden_tokens": 0,
+   "tool_output_tokens": 179625,
+   "admit_elided_tokens": 0,
+   "compactions": 0,
+   "declined": 0,
+   "pressure": 0,
+   "errors": 0,
+   "max_prompt": 103568,
+   "chains": 8,
+   "cost_per_resolved": 0.008447327272727272,
+   "cache_hit_share": 0.9627439868024757
+  },
+  "mask": {
+   "cost": 1.495482,
+   "host_cost": 1.495482,
+   "judge_cost": 0.0,
+   "resolved": 53,
+   "issues": 80,
+   "cache_write": 10970832,
+   "cache_read": 2644366,
+   "input": 1316,
+   "output": 195108,
+   "requests": 578,
+   "prompt_tokens": 13616514,
+   "long_context_requests": 0,
+   "hidden_edits": 0,
+   "hidden_rereads": 1,
+   "expands": 0,
+   "recalls": 0,
+   "edits": 80,
+   "hidden_outputs": 455,
+   "hidden_tokens": 151023,
+   "tool_output_tokens": 164369,
+   "admit_elided_tokens": 0,
+   "compactions": 0,
+   "declined": 0,
+   "pressure": 0,
+   "errors": 0,
+   "max_prompt": 81869,
+   "chains": 8,
+   "cost_per_resolved": 0.02821664150943396,
+   "cache_hit_share": 0.1942028627885228,
+   "cost_vs_off": [
+    3.2188384491705824,
+    2.270400228054952,
+    4.73416568662309
+   ],
+   "prompt_vs_off": [
+    0.6308777812176575,
+    0.47683848943769425,
+    0.8438017775489326
+   ],
+   "cache_write_vs_off": [
+    13.665692992410323,
+    7.986871301775148,
+    23.448896698986893
+   ],
+   "resolved_minus_off": [
+    -2,
+    -5,
+    0
+   ]
+  },
+  "stale": {
+   "cost": 0.443314,
+   "host_cost": 0.443314,
+   "judge_cost": 0.0,
+   "resolved": 58,
+   "issues": 80,
+   "cache_write": 665049,
+   "cache_read": 20838690,
+   "input": 1320,
+   "output": 204187,
+   "requests": 580,
+   "prompt_tokens": 21505059,
+   "long_context_requests": 9,
+   "hidden_edits": 0,
+   "hidden_rereads": 0,
+   "expands": 0,
+   "recalls": 0,
+   "edits": 69,
+   "hidden_outputs": 7,
+   "hidden_tokens": 4570,
+   "tool_output_tokens": 158322,
+   "admit_elided_tokens": 0,
+   "compactions": 5,
+   "declined": 29,
+   "pressure": 0,
+   "errors": 0,
+   "max_prompt": 108186,
+   "chains": 8,
+   "cost_per_resolved": 0.007643344827586207,
+   "cache_hit_share": 0.9690133842460046,
+   "cost_vs_off": [
+    0.9541780832237415,
+    0.5931065095900793,
+    1.652246016471439
+   ],
+   "prompt_vs_off": [
+    0.9963683734966833,
+    0.6922894231568342,
+    1.5622769820227222
+   ],
+   "cache_write_vs_off": [
+    0.8284107767678416,
+    0.6862719438981936,
+    1.0624543865083824
+   ],
+   "resolved_minus_off": [
+    3,
+    0,
+    6
+   ]
+  },
+  "staleh": {
+   "cost": 0.400222,
+   "host_cost": 0.400222,
+   "judge_cost": 0.0,
+   "resolved": 55,
+   "issues": 80,
+   "cache_write": 782932,
+   "cache_read": 19845743,
+   "input": 1324,
+   "output": 207526,
+   "requests": 582,
+   "prompt_tokens": 20629999,
+   "long_context_requests": 0,
+   "hidden_edits": 0,
+   "hidden_rereads": 0,
+   "expands": 0,
+   "recalls": 0,
+   "edits": 81,
+   "hidden_outputs": 24,
+   "hidden_tokens": 16021,
+   "tool_output_tokens": 170430,
+   "admit_elided_tokens": 0,
+   "compactions": 21,
+   "declined": 14,
+   "pressure": 0,
+   "errors": 0,
+   "max_prompt": 90410,
+   "chains": 8,
+   "cost_per_resolved": 0.007276763636363637,
+   "cache_hit_share": 0.9619846806584915,
+   "cost_vs_off": [
+    0.8614279287908172,
+    0.6772589301133118,
+    1.1254933787823453
+   ],
+   "prompt_vs_off": [
+    0.9558252571577787,
+    0.7846809142797987,
+    1.1801546169455681
+   ],
+   "cache_write_vs_off": [
+    0.9752504045211703,
+    0.825817482110519,
+    1.1331875021530193
+   ],
+   "resolved_minus_off": [
+    0,
+    -6,
+    5
+   ]
+  },
+  "jev": {
+   "cost": 1.293552,
+   "host_cost": 0.635291,
+   "judge_cost": 0.658261,
+   "resolved": 52,
+   "issues": 80,
+   "cache_write": 607580,
+   "cache_read": 22505419,
+   "input": 1304,
+   "output": 204039,
+   "requests": 572,
+   "prompt_tokens": 23114303,
+   "long_context_requests": 40,
+   "hidden_edits": 0,
+   "hidden_rereads": 0,
+   "expands": 0,
+   "recalls": 0,
+   "edits": 68,
+   "hidden_outputs": 18,
+   "hidden_tokens": 11976,
+   "tool_output_tokens": 178173,
+   "admit_elided_tokens": 2643,
+   "compactions": 10,
+   "declined": 47,
+   "pressure": 0,
+   "errors": 0,
+   "max_prompt": 131328,
+   "chains": 8,
+   "cost_per_resolved": 0.024876000000000002,
+   "cache_hit_share": 0.9736576958431323,
+   "cost_vs_off": [
+    2.784209314188673,
+    1.983642046537763,
+    3.5067943831210244
+   ],
+   "prompt_vs_off": [
+    1.07092756567743,
+    0.8251840116519437,
+    1.260065285987604
+   ],
+   "cache_write_vs_off": [
+    0.7568251658879349,
+    0.5497681306550494,
+    1.051316255102618
+   ],
+   "resolved_minus_off": [
+    -3,
+    -6,
+    -1
+   ]
+  },
+  "jevh": {
+   "cost": 1.074279,
+   "host_cost": 0.364063,
+   "judge_cost": 0.7102159999999998,
+   "resolved": 52,
+   "issues": 80,
+   "cache_write": 652864,
+   "cache_read": 18196214,
+   "input": 1328,
+   "output": 200726,
+   "requests": 584,
+   "prompt_tokens": 18850406,
+   "long_context_requests": 0,
+   "hidden_edits": 1,
+   "hidden_rereads": 0,
+   "expands": 0,
+   "recalls": 0,
+   "edits": 90,
+   "hidden_outputs": 25,
+   "hidden_tokens": 25072,
+   "tool_output_tokens": 173074,
+   "admit_elided_tokens": 1494,
+   "compactions": 18,
+   "declined": 26,
+   "pressure": 0,
+   "errors": 0,
+   "max_prompt": 83082,
+   "chains": 8,
+   "cost_per_resolved": 0.02065921153846154,
+   "cache_hit_share": 0.9652956015907562,
+   "cost_vs_off": [
+    2.31225153518165,
+    1.7347996447940763,
+    3.0986812588337505
+   ],
+   "prompt_vs_off": [
+    0.8733734869535638,
+    0.6722125373532749,
+    1.1248062390610523
+   ],
+   "cache_write_vs_off": [
+    0.8132326691172532,
+    0.5793752606038024,
+    1.139309711305533
+   ],
+   "resolved_minus_off": [
+    -3,
+    -7,
+    1
+   ]
+  }
+ },
+ "by_position": {
+  "off": {
+   "0": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 5407,
+    "cost": 0.0206
+   },
+   "1": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 13103,
+    "cost": 0.0246
+   },
+   "2": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 17716,
+    "cost": 0.0227
+   },
+   "3": {
+    "n": 8,
+    "resolved": 4,
+    "prompt_per_request": 24418,
+    "cost": 0.0344
+   },
+   "4": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 37318,
+    "cost": 0.0416
+   },
+   "5": {
+    "n": 8,
+    "resolved": 6,
+    "prompt_per_request": 39038,
+    "cost": 0.0263
+   },
+   "6": {
+    "n": 8,
+    "resolved": 6,
+    "prompt_per_request": 49374,
+    "cost": 0.0517
+   },
+   "7": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 64608,
+    "cost": 0.0431
+   },
+   "8": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 56894,
+    "cost": 0.1015
+   },
+   "9": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 72981,
+    "cost": 0.0982
+   }
+  },
+  "mask": {
+   "0": {
+    "n": 8,
+    "resolved": 4,
+    "prompt_per_request": 5153,
+    "cost": 0.0199
+   },
+   "1": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 9767,
+    "cost": 0.0559
+   },
+   "2": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 13513,
+    "cost": 0.0673
+   },
+   "3": {
+    "n": 8,
+    "resolved": 2,
+    "prompt_per_request": 19118,
+    "cost": 0.1723
+   },
+   "4": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 24318,
+    "cost": 0.1791
+   },
+   "5": {
+    "n": 8,
+    "resolved": 6,
+    "prompt_per_request": 25109,
+    "cost": 0.1221
+   },
+   "6": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 35826,
+    "cost": 0.2144
+   },
+   "7": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 29546,
+    "cost": 0.1438
+   },
+   "8": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 35038,
+    "cost": 0.3102
+   },
+   "9": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 39237,
+    "cost": 0.2104
+   }
+  },
+  "jevh": {
+   "0": {
+    "n": 8,
+    "resolved": 4,
+    "prompt_per_request": 5118,
+    "cost": 0.1082
+   },
+   "1": {
+    "n": 8,
+    "resolved": 6,
+    "prompt_per_request": 11130,
+    "cost": 0.115
+   },
+   "2": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 16594,
+    "cost": 0.0835
+   },
+   "3": {
+    "n": 8,
+    "resolved": 3,
+    "prompt_per_request": 21289,
+    "cost": 0.1066
+   },
+   "4": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 28802,
+    "cost": 0.1349
+   },
+   "5": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 35972,
+    "cost": 0.067
+   },
+   "6": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 40952,
+    "cost": 0.1263
+   },
+   "7": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 50206,
+    "cost": 0.0965
+   },
+   "8": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 51238,
+    "cost": 0.1273
+   },
+   "9": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 63934,
+    "cost": 0.1091
+   }
+  },
+  "stale": {
+   "0": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 4967,
+    "cost": 0.0183
+   },
+   "1": {
+    "n": 8,
+    "resolved": 6,
+    "prompt_per_request": 10516,
+    "cost": 0.0167
+   },
+   "2": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 16880,
+    "cost": 0.0246
+   },
+   "3": {
+    "n": 8,
+    "resolved": 4,
+    "prompt_per_request": 24477,
+    "cost": 0.0299
+   },
+   "4": {
+    "n": 8,
+    "resolved": 6,
+    "prompt_per_request": 40450,
+    "cost": 0.0686
+   },
+   "5": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 40058,
+    "cost": 0.029
+   },
+   "6": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 47078,
+    "cost": 0.0477
+   },
+   "7": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 50432,
+    "cost": 0.0373
+   },
+   "8": {
+    "n": 8,
+    "resolved": 6,
+    "prompt_per_request": 61394,
+    "cost": 0.0796
+   },
+   "9": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 69535,
+    "cost": 0.0915
+   }
+  },
+  "jev": {
+   "0": {
+    "n": 8,
+    "resolved": 4,
+    "prompt_per_request": 5269,
+    "cost": 0.0916
+   },
+   "1": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 11706,
+    "cost": 0.1323
+   },
+   "2": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 19306,
+    "cost": 0.0708
+   },
+   "3": {
+    "n": 8,
+    "resolved": 4,
+    "prompt_per_request": 27406,
+    "cost": 0.1365
+   },
+   "4": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 40756,
+    "cost": 0.1224
+   },
+   "5": {
+    "n": 8,
+    "resolved": 6,
+    "prompt_per_request": 41177,
+    "cost": 0.0843
+   },
+   "6": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 51750,
+    "cost": 0.1652
+   },
+   "7": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 65982,
+    "cost": 0.1779
+   },
+   "8": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 61494,
+    "cost": 0.1767
+   },
+   "9": {
+    "n": 8,
+    "resolved": 4,
+    "prompt_per_request": 77152,
+    "cost": 0.1358
+   }
+  },
+  "staleh": {
+   "0": {
+    "n": 8,
+    "resolved": 4,
+    "prompt_per_request": 5122,
+    "cost": 0.0216
+   },
+   "1": {
+    "n": 8,
+    "resolved": 6,
+    "prompt_per_request": 9806,
+    "cost": 0.02
+   },
+   "2": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 16970,
+    "cost": 0.0202
+   },
+   "3": {
+    "n": 8,
+    "resolved": 3,
+    "prompt_per_request": 23208,
+    "cost": 0.042
+   },
+   "4": {
+    "n": 8,
+    "resolved": 6,
+    "prompt_per_request": 37009,
+    "cost": 0.0541
+   },
+   "5": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 39175,
+    "cost": 0.0321
+   },
+   "6": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 42866,
+    "cost": 0.0413
+   },
+   "7": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 59088,
+    "cost": 0.0532
+   },
+   "8": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 58749,
+    "cost": 0.0748
+   },
+   "9": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 68981,
+    "cost": 0.041
+   }
+  }
+ }
+}
