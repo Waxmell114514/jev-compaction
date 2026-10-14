@@ -14,7 +14,8 @@ vLLM, llama.cpp, LM Studio and Ollama all serve.
 - for ``jev``: see :mod:`jevctx.jev` (``TYPESAFE_API_KEY``, or ``JEV_BASE_URL`` + key)
 - for ``llm``: ``JUDGE_BASE_URL`` and ``JUDGE_MODEL`` (required), ``JUDGE_API_KEY``
   (omit for a local server that needs none), ``JUDGE_JSON_MODE=0`` for a server that
-  rejects ``response_format``, ``JUDGE_RPM`` to cap requests per minute
+  rejects ``response_format``, ``JUDGE_RPM`` to cap requests per minute,
+  ``JUDGE_TEMPERATURE`` (a number, or ``none`` to omit the parameter)
 
 A chat model's probabilities are its own estimates, not a classifier's, so fit the
 gate's thresholds to the judge you use (``python -m jevctx.calibrate``). The SWE-bench
@@ -185,7 +186,7 @@ class LLMJudgeClient:
         api_key: str | None = None,
         json_mode: bool | None = None,
         rpm: int | None = None,
-        temperature: float = 0.0,
+        temperature: float | None = 0.0,
         timeout: float = 60.0,
         max_retries: int = 3,
         max_concurrency: int = 8,
@@ -204,6 +205,9 @@ class LLMJudgeClient:
             json_mode = env.get("JUDGE_JSON_MODE", "1") != "0"
         if rpm is None and env.get("JUDGE_RPM"):
             rpm = int(env["JUDGE_RPM"])
+        if (set_temperature := env.get("JUDGE_TEMPERATURE")) is not None:
+            # "none" omits the parameter: some models reject it (Claude Haiku 5.5).
+            temperature = None if set_temperature.lower() == "none" else float(set_temperature)
         self._model = model
         self._json_mode = json_mode
         self._temperature = temperature
@@ -244,13 +248,14 @@ class LLMJudgeClient:
         asked = {key: _question_payload(question) for key, question in questions.items()}
         body: dict[str, Any] = {
             "model": self._model,
-            "temperature": self._temperature,
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": f"STATE:\n{state_text}\n\nQUESTIONS:\n"
                                             f"{json.dumps(asked, ensure_ascii=False)}"},
             ],
         }
+        if self._temperature is not None:
+            body["temperature"] = self._temperature
         if self._json_mode:
             body["response_format"] = {"type": "json_object"}
         return body
