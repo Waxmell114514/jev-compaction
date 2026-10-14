@@ -31,6 +31,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from bench.haiku.agent import Policy, Session  # noqa: E402
+from bench.haiku.judges import AnthropicJudge  # noqa: E402
 from bench.haiku.tasks import Instance, Workspace, load_instances  # noqa: E402
 from jevctx.judge import make_judge  # noqa: E402
 from jevctx.pipeline import GateConfig  # noqa: E402
@@ -108,6 +109,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cliff-tokens", type=int, default=85_000,
                         help="stalec/jevc: estimated transcript size that forces compaction")
     parser.add_argument("--keep-worktrees", action="store_true")
+    parser.add_argument("--judge", default="env", choices=("env", "flat", "cached", "compact"),
+                        help="env: make_judge() from JEVCTX_JUDGE; else bench/haiku/judges.py")
+    parser.add_argument("--label", default="", help="suffix for the arm name in results")
     args = parser.parse_args(argv)
 
     instances = load_instances(args.scratch, versions=tuple(args.versions.split(",")))
@@ -135,7 +139,14 @@ def main(argv: list[str] | None = None) -> int:
         gate = GateConfig(profile=True, gate_on="role:change_site",
                           keep_threshold=fitted["keep_threshold"], thresholds=fitted["thresholds"])
     need_judge = any(a.startswith("jev") for a in arms) or args.shadow
-    judge = make_judge() if need_judge else None
+
+    def new_judge():
+        """One judge per session, so its usage counts that session's requests only."""
+        if not need_judge:
+            return None
+        if args.judge == "env":
+            return make_judge()
+        return AnthropicJudge(args.judge)
     workspace = Workspace(args.scratch)
     lock = threading.Lock()
 
@@ -151,11 +162,12 @@ def main(argv: list[str] | None = None) -> int:
 
     def one(chain: list[Instance], arm: str) -> None:
         chain_id = f"{chain[0].version}-{chain[0].instance_id.split('-')[-1]}"
-        if (chain_id, arm, args.seed) in done:
+        name = f"{arm}-{args.label}" if args.label else arm
+        if (chain_id, name, args.seed) in done:
             return
-        run_dir = args.out / arm / f"{chain_id}-s{args.seed}"
+        run_dir = args.out / name / f"{chain_id}-s{args.seed}"
         run_dir.mkdir(parents=True, exist_ok=True)
-        root = args.scratch / "work" / arm / f"{chain_id}-s{args.seed}"
+        root = args.scratch / "work" / name / f"{chain_id}-s{args.seed}"
         session = None
         try:
             workspace.checkout(chain[0], root)
@@ -170,10 +182,10 @@ def main(argv: list[str] | None = None) -> int:
             policy = policy_for(arm, shadow=args.shadow, mask_turns=args.mask_turns, gate=gate,
                                 cliff_tokens=args.cliff_tokens)
             session = Session(root=root, python=workspace.python_for(chain[0]), policy=policy,
-                              store=store, log=log, judge=judge, trace=trace)
+                              store=store, log=log, judge=new_judge(), trace=trace)
             for index, instance in enumerate(chain):
                 record: dict = {"chain": chain_id, "chain_length": len(chain), "index": index,
-                                "instance_id": instance.instance_id, "arm": arm, "seed": args.seed,
+                                "instance_id": instance.instance_id, "arm": name, "seed": args.seed,
                                 "version": instance.version, "difficulty": instance.difficulty}
                 if index:
                     workspace.reset(root, instance.base_commit)
@@ -200,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001 - one failed chain must not stop the sweep
             (run_dir / "error.txt").write_text(traceback.format_exc())
             emit({"chain": chain_id, "chain_length": len(chain), "index": -1,
-                  "instance_id": "-", "arm": arm, "seed": args.seed, "status": "harness_error",
+                  "instance_id": "-", "arm": name, "seed": args.seed, "status": "harness_error",
                   "error": f"{type(exc).__name__}: {exc}"})
             if session is not None:
                 (run_dir / "messages.json").write_text(

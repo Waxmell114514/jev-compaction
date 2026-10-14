@@ -1,0 +1,354 @@
+[
+ {
+  "session": "4.0-13925-s0",
+  "outputs": 79,
+  "flat": {
+   "input_tokens": 65545,
+   "uncached": 65545,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 9871,
+   "requests": 15,
+   "failures": 0,
+   "cost_usd": 0.01149
+  },
+  "flat2": {
+   "input_tokens": 65545,
+   "uncached": 65545,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 9871,
+   "requests": 15,
+   "failures": 0,
+   "cost_usd": 0.01149
+  },
+  "cached": {
+   "input_tokens": 53909,
+   "uncached": 16322,
+   "cache_read": 30289,
+   "cache_write": 7298,
+   "output_tokens": 11250,
+   "requests": 17,
+   "failures": 1,
+   "cost_usd": 0.008472
+  },
+  "compact": {
+   "input_tokens": 49438,
+   "uncached": 14730,
+   "cache_read": 27410,
+   "cache_write": 7298,
+   "output_tokens": 4468,
+   "requests": 15,
+   "failures": 0,
+   "cost_usd": 0.004893
+  }
+ },
+ {
+  "session": "4.0-13933-s0",
+  "outputs": 59,
+  "flat": {
+   "input_tokens": 118784,
+   "uncached": 118784,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 10732,
+   "requests": 13,
+   "failures": 0,
+   "cost_usd": 0.017244
+  },
+  "flat2": {
+   "input_tokens": 118784,
+   "uncached": 118784,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 10732,
+   "requests": 13,
+   "failures": 0,
+   "cost_usd": 0.017244
+  },
+  "cached": {
+   "input_tokens": 97208,
+   "uncached": 73948,
+   "cache_read": 19624,
+   "cache_write": 3636,
+   "output_tokens": 10791,
+   "requests": 13,
+   "failures": 0,
+   "cost_usd": 0.013441
+  },
+  "compact": {
+   "input_tokens": 98053,
+   "uncached": 73948,
+   "cache_read": 20469,
+   "cache_write": 3636,
+   "output_tokens": 5029,
+   "requests": 13,
+   "failures": 0,
+   "cost_usd": 0.010568
+  }
+ },
+ {
+  "session": "4.0-14007-s0",
+  "outputs": 52,
+  "flat": {
+   "input_tokens": 108362,
+   "uncached": 108362,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 11897,
+   "requests": 16,
+   "failures": 0,
+   "cost_usd": 0.016785
+  },
+  "flat2": {
+   "input_tokens": 108362,
+   "uncached": 108362,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 11897,
+   "requests": 16,
+   "failures": 0,
+   "cost_usd": 0.016785
+  },
+  "cached": {
+   "input_tokens": 84714,
+   "uncached": 49647,
+   "cache_read": 26952,
+   "cache_write": 8115,
+   "output_tokens": 11971,
+   "requests": 16,
+   "failures": 0,
+   "cost_usd": 0.012234
+  },
+  "compact": {
+   "input_tokens": 85754,
+   "uncached": 49647,
+   "cache_read": 27992,
+   "cache_write": 8115,
+   "output_tokens": 5468,
+   "requests": 16,
+   "failures": 0,
+   "cost_usd": 0.008993
+  }
+ },
+ {
+  "session": "4.1-14725-s0",
+  "outputs": 70,
+  "flat": {
+   "input_tokens": 128184,
+   "uncached": 128184,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 20305,
+   "requests": 25,
+   "failures": 0,
+   "cost_usd": 0.022971
+  },
+  "flat2": {
+   "input_tokens": 128184,
+   "uncached": 128184,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 20310,
+   "requests": 25,
+   "failures": 0,
+   "cost_usd": 0.022973
+  },
+  "cached": {
+   "input_tokens": 89861,
+   "uncached": 32022,
+   "cache_read": 51528,
+   "cache_write": 6311,
+   "output_tokens": 21803,
+   "requests": 26,
+   "failures": 0,
+   "cost_usd": 0.015408
+  },
+  "compact": {
+   "input_tokens": 87495,
+   "uncached": 30539,
+   "cache_read": 50645,
+   "cache_write": 6311,
+   "output_tokens": 9017,
+   "requests": 25,
+   "failures": 0,
+   "cost_usd": 0.008858
+  }
+ },
+ {
+  "session": "4.1-14915-s0",
+  "outputs": 69,
+  "flat": {
+   "input_tokens": 112148,
+   "uncached": 112148,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 21751,
+   "requests": 20,
+   "failures": 0,
+   "cost_usd": 0.02209
+  },
+  "flat2": {
+   "input_tokens": 109720,
+   "uncached": 109720,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 21443,
+   "requests": 19,
+   "failures": 0,
+   "cost_usd": 0.021694
+  },
+  "cached": {
+   "input_tokens": 68223,
+   "uncached": 26587,
+   "cache_read": 37281,
+   "cache_write": 4355,
+   "output_tokens": 22928,
+   "requests": 21,
+   "failures": 1,
+   "cost_usd": 0.01504
+  },
+  "compact": {
+   "input_tokens": 61236,
+   "uncached": 22869,
+   "cache_read": 34710,
+   "cache_write": 3657,
+   "output_tokens": 9453,
+   "requests": 19,
+   "failures": 0,
+   "cost_usd": 0.007818
+  }
+ },
+ {
+  "session": "4.1-15022-s0",
+  "outputs": 82,
+  "flat": {
+   "input_tokens": 174498,
+   "uncached": 174498,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 25810,
+   "requests": 28,
+   "failures": 0,
+   "cost_usd": 0.030355
+  },
+  "flat2": {
+   "input_tokens": 181412,
+   "uncached": 181412,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 26391,
+   "requests": 29,
+   "failures": 0,
+   "cost_usd": 0.031337
+  },
+  "cached": {
+   "input_tokens": 119231,
+   "uncached": 63220,
+   "cache_read": 49465,
+   "cache_write": 6546,
+   "output_tokens": 25595,
+   "requests": 28,
+   "failures": 0,
+   "cost_usd": 0.020432
+  },
+  "compact": {
+   "input_tokens": 121051,
+   "uncached": 63220,
+   "cache_read": 51669,
+   "cache_write": 6162,
+   "output_tokens": 11727,
+   "requests": 28,
+   "failures": 0,
+   "cost_usd": 0.013472
+  }
+ },
+ {
+  "session": "4.2-15732-s0",
+  "outputs": 74,
+  "flat": {
+   "input_tokens": 115700,
+   "uncached": 115700,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 20302,
+   "requests": 24,
+   "failures": 0,
+   "cost_usd": 0.021721
+  },
+  "flat2": {
+   "input_tokens": 115700,
+   "uncached": 115700,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 20302,
+   "requests": 24,
+   "failures": 0,
+   "cost_usd": 0.021721
+  },
+  "cached": {
+   "input_tokens": 73861,
+   "uncached": 29226,
+   "cache_read": 38681,
+   "cache_write": 5954,
+   "output_tokens": 20216,
+   "requests": 24,
+   "failures": 0,
+   "cost_usd": 0.014162
+  },
+  "compact": {
+   "input_tokens": 75421,
+   "uncached": 29226,
+   "cache_read": 41005,
+   "cache_write": 5190,
+   "output_tokens": 8992,
+   "requests": 24,
+   "failures": 0,
+   "cost_usd": 0.008477
+  }
+ },
+ {
+  "session": "4.2-15741-s0",
+  "outputs": 58,
+  "flat": {
+   "input_tokens": 94753,
+   "uncached": 94753,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 14215,
+   "requests": 18,
+   "failures": 0,
+   "cost_usd": 0.016583
+  },
+  "flat2": {
+   "input_tokens": 94753,
+   "uncached": 94753,
+   "cache_read": 0,
+   "cache_write": 0,
+   "output_tokens": 14215,
+   "requests": 18,
+   "failures": 0,
+   "cost_usd": 0.016583
+  },
+  "cached": {
+   "input_tokens": 72556,
+   "uncached": 23215,
+   "cache_read": 41663,
+   "cache_write": 7678,
+   "output_tokens": 15638,
+   "requests": 21,
+   "failures": 0,
+   "cost_usd": 0.011517
+  },
+  "compact": {
+   "input_tokens": 66634,
+   "uncached": 21996,
+   "cache_read": 36960,
+   "cache_write": 7678,
+   "output_tokens": 6375,
+   "requests": 18,
+   "failures": 0,
+   "cost_usd": 0.006716
+  }
+ }
+]

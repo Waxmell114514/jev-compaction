@@ -374,8 +374,7 @@ class Session:
         counts_before = dict(self.counts)
         hidden_before = len(self.hidden)
         judge_usage = getattr(self.judge, "usage", None)
-        judge_before = ((judge_usage.input_tokens, judge_usage.requests)
-                        if judge_usage is not None else (0, 0))
+        judge_before = _judge_snapshot(judge_usage)
         started = time.perf_counter()
         status, answer = "step_limit", ""
         try:
@@ -422,8 +421,8 @@ class Session:
         usage = self.usage[first_request:]
         self.issue_turns.append(len(usage))
         delta = {k: self.counts[k] - counts_before[k] for k in COUNTERS}
-        judge_tokens = (judge_usage.input_tokens - judge_before[0]) if judge_usage is not None else 0
-        judge_requests = (judge_usage.requests - judge_before[1]) if judge_usage is not None else 0
+        judge_after = _judge_snapshot(judge_usage)
+        judge_delta = {k: judge_after[k] - judge_before[k] for k in judge_after}
         return {
             "status": status, "answer": answer[-2000:], "turns": len(usage),
             "session_turn": self.turn,
@@ -433,12 +432,12 @@ class Session:
                       "cache_read": sum(u.cache_read for u in usage),
                       "output": sum(u.output for u in usage), "requests": len(usage)},
             "host_cost_usd": round(sum(u.cost() for u in usage), 6),
-            "judge_input_tokens": judge_tokens, "judge_requests": judge_requests,
-            # the judge is Haiku too, billed for input only (its answers are a few tokens)
-            "judge_cost_usd": round(judge_tokens * PRICES["input"] / 1e6, 6)
-            if self.policy.arm == "jev" else 0.0,
-            "shadow_cost_usd": round(judge_tokens * PRICES["input"] / 1e6, 6)
-            if self.policy.shadow else 0.0,
+            # The judge must be this session's own: its usage is read before and after.
+            "judge_input_tokens": judge_delta["input"], "judge_output_tokens": judge_delta["output"],
+            "judge_cache_read": judge_delta["cache_read"], "judge_cache_write": judge_delta["cache_write"],
+            "judge_requests": judge_delta["requests"],
+            "judge_cost_usd": round(judge_delta["cost"], 6) if self.policy.arm == "jev" else 0.0,
+            "shadow_cost_usd": round(judge_delta["cost"], 6) if self.policy.shadow else 0.0,
             "prompt_tokens_est": sum(u.request_tokens_est for u in usage),
             "prompt_tokens": sum(u.prompt for u in usage),
             "max_prompt_tokens": max((u.prompt for u in usage), default=0),
@@ -526,3 +525,16 @@ class Session:
                                    "failed": result.failed if result is not None else True,
                                    "tokens": segment.tokens, "call_id": call_id, "turn": self.turn,
                                    "text": segment.text}})
+
+
+def _judge_snapshot(usage: Any) -> dict[str, float]:
+    """Running totals of a judge's usage, priced at Haiku's sheet. A judge that reports
+    cache traffic (:class:`bench.haiku.judges.JudgeUsage`) is priced from it; otherwise
+    every input token is uncached."""
+    if usage is None:
+        return dict.fromkeys(("input", "output", "cache_read", "cache_write", "requests", "cost"), 0)
+    cost = usage.cost_usd() if hasattr(usage, "cost_usd") else (
+        usage.input_tokens * PRICES["input"] + usage.output_tokens * PRICES["output"]) / 1e6
+    return {"input": usage.input_tokens, "output": usage.output_tokens,
+            "cache_read": getattr(usage, "cache_read", 0), "cache_write": getattr(usage, "cache_write", 0),
+            "requests": usage.requests, "cost": cost}

@@ -16,7 +16,7 @@ import random
 from collections import defaultdict
 from pathlib import Path
 
-ORDER = ["off", "mask", "stale", "stalec", "staleh", "jev", "jevc", "jevh"]
+ORDER = ["off", "mask", "stale", "stalec", "staleh", "jev", "jevc", "jevh", "jevh-flat", "jevh-cached", "jevh-compact"]
 
 
 def load(root: Path) -> list[dict]:
