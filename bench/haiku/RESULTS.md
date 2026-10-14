@@ -37,8 +37,8 @@ Arms:
 | `mask` | 53 | $1.496 | **3.22 [2.27, 4.72]**, dearer on 8/8 chains | **0.63 [0.48, 0.84]** | 19% | 10.97M | 0 |
 | `stale` | 58 | $0.443 | 0.95 [0.59, 1.64], cheaper on 7/8 | 1.00 [0.69, 1.56] | 97% | 0.67M | 9 |
 | `staleh` | 55 | $0.400 | 0.86 [0.67, 1.12], cheaper on 4/8 | 0.96 [0.78, 1.18] | 96% | 0.78M | 0 |
-| `jev` | 52 | $0.635 + judge $0.658 | 1.37 [0.69, 2.25] | 1.07 [0.83, 1.26] | 97% | 0.61M | 40 |
-| `jevh` | 52 | $0.364 + judge $0.710 | 0.78 [0.60, 1.04], cheaper on 6/8 | 0.87 [0.67, 1.12] | 97% | 0.65M | 0 |
+| `jev` | 52 | $0.635 + judge $0.658 (miscounted, see 2) | 1.37 [0.69, 2.25] | 1.07 [0.83, 1.26] | 97% | 0.61M | 40 |
+| `jevh` | 52 | $0.364 + judge $0.710 (miscounted, see 2) | 0.78 [0.60, 1.04], cheaper on 6/8 | 0.87 [0.67, 1.12] | 97% | 0.65M | 0 |
 
 Resolved, against `off`: `mask` −2 [−5, 0], `stale` +3 [0, 6], `staleh` 0 [−6, 5],
 `jev` −3 [−6, −1], `jevh` −3 [−7, 1]. One seed: a difference of a few issues is
@@ -52,21 +52,56 @@ written against 0.80M, a cache hit rate of 19% against 96%. On every one of the 
 chains it was dearer than doing nothing. A context size measured in tokens says
 nothing about the bill under prompt caching; the edit pattern does.
 
-### 2. The judge's own reads cost more than it saves, at Haiku's price
+### 2. A judge has to read at about the cache price to pay, and a cache-aware layout gets a Haiku judge most of the way
 
-`jevh`'s requests cost $0.101 less than `off`'s; its judge cost $0.710. The judge read
-7.1M tokens, 41x the tool output the agent produced, while the gate elided 1–2% of it.
-Two things make the reads large: every judge request carries the task, and with a chat
-model the per-segment questions (keep, type, role, lifetime, injection, with their
-options) are billed input too. To break even, `jevh`'s judge would have had to cost
-**$0.014 per million tokens**: about Haiku's cache-read price. The agent reads its
-context at the cache-read price; a judge that reads each output once at an uncached
-price must be about that cheap per token to pay.
+**Correction.** In the first `jev`/`jevh` runs, sixteen concurrent sessions shared one
+judge object and each issue's judge cost was read off its running totals, so requests
+were counted more than once; the judge's output tokens were not priced at all. Those
+judge costs ($0.658, $0.710) and "41x the tool output" are not reliable, and are left
+in the table above only for the record. The host costs, cache figures and resolved
+counts of those runs are per session and stand. From here on every session has its own
+judge, priced with its output.
 
-Jev bills the state only and not the questions (`jevctx/budget.py`). Estimated that
-way (task + 375 tokens of recent context per request, plus every scored segment;
-an upper bound, not metered), `jevh`'s judge would read 1.5M tokens, $0.064 at
-$0.042/M, and `jevh` would cost 0.92 [0.71, 1.23] of `off` in all.
+Counted correctly, `jevh` with the judge as `LLMJudgeClient` lays it out (`jevh-flat`)
+spent $0.178 on the judge and saved $0.088 of host cost against `off`. Output was most
+of a judge's bill: every choice question is answered with a distribution over all its
+options, and Haiku's output costs 5x its input.
+
+`bench/haiku/judges.py` asks the same questions laid out for the prompt cache
+(`cached`): the answer rules and a catalog of the distinct question templates in a
+cached system block, the task in a cached user block, then only the items and one short
+line per question ("i0:role: T3, about item i0"). Replayed on the 159 admission requests
+of the eight `off` sessions (`judge_replay.py`, every request sent to every layout):
+
+| judge layout | input tokens | of which cache reads | output tokens | cost | gate decision agrees with `flat` |
+|---|---:|---:|---:|---:|---:|
+| `flat` | 918K | 0 | 135K | $0.159 | — |
+| `flat`, asked again | 922K | 0 | 135K | $0.160 | 97.8% |
+| `cached` | 660K | 295K | 140K | $0.111 | 96.9% |
+| `compact` (cached, short reply) | 645K | 291K | 61K | $0.070 | 90.1% |
+
+`cached` changes the gate's decisions no more than asking `flat` twice does. `compact`
+asks for one line of JSON listing only options at 0.05 or more; it costs least, but
+reports P(change_site) as exactly 0 for a quarter of segments, elides a quarter more of
+them, and no threshold restores agreement. It changes the judge's answers, not just
+their length; it was not run live.
+
+Live, on the same eight chains:
+
+| arm | host | judge | total | total vs `off` | resolved /80 |
+|---|---:|---:|---:|---|---:|
+| `off` | $0.465 | — | $0.465 | — | 55 |
+| `staleh` (no judge) | $0.400 | — | $0.400 | 0.86 [0.68, 1.13] | 55 |
+| `jevh-flat` | $0.377 | $0.178 | $0.555 | 1.19 [0.98, 1.47] | 54 |
+| `jevh-cached` | $0.369 | $0.122 | $0.491 | 1.06 [0.80, 1.42] | 52 |
+
+The cached layout cut the judge's cost by 32% [15%, 41%], cheaper on 7 of 8 sessions,
+as the replay said. It was still not enough: the judge cost $0.122 and saved $0.096 of
+host cost, and the judge-free `staleh` was cheaper than `jevh-cached` on 7 of 8
+sessions (ratio 0.81 [0.71, 0.93]). The host reads its context at the cache price, so
+a judge that reads each output once must cost about that much per useful decision to
+pay. Jev bills the state only (`jevctx/budget.py`); estimated that way, not metered, a
+Jev judge on `jevh` would read about 1.5M tokens, $0.064 at $0.042/M.
 
 ### 3. The long-context price tier decides the bill of the sessions that reach it
 
@@ -97,7 +132,8 @@ recall on their own.
 - One seed, 8 sessions, one model. The resolved differences are noise-sized, and the
   cost intervals of every arm but `mask` include 1.
 - Haiku as the judge, not Jev. Jev's cost is estimated from the repository's account of
-  its billing, not metered.
+  its billing, not metered. The `compact` judge's extra elisions were not checked against
+  what the agent later used.
 - The cache-rate scaling past 100K tokens is assumed.
 - Django only, and short issues: about 7 requests per issue.
 
@@ -118,4 +154,9 @@ python bench/haiku/analyze.py runs/haiku-main
 `$SCRATCH` needs `data/verified.parquet` (SWE-bench Verified), a bare django clone at
 `repos/django.git`, and virtualenvs `envs/dj3` (Python 3.8) and `envs/dj4`
 (Python 3.10) with `asgiref sqlparse pytz tzdata jinja2 Pillow PyYAML numpy docutils
-tblib argon2-cffi bcrypt`. The whole sweep cost about $5 in API calls.
+tblib argon2-cffi bcrypt`. The whole sweep cost about $5 in API calls; the judge replay
+and the two `jevh-*` arms about $2 more.
+
+The judge comparison: `python bench/haiku/judge_replay.py runs/haiku-main --out runs/judge-replay`,
+`python bench/haiku/judge_agreement.py runs/judge-replay`, and `run.py ... --arms jevh
+--judge flat --label flat` (and `--judge cached --label cached`).

@@ -286,6 +286,108 @@
     -7,
     1
    ]
+  },
+  "jevh-flat": {
+   "cost": 0.554914,
+   "host_cost": 0.3767329999999999,
+   "judge_cost": 0.17818099999999998,
+   "resolved": 54,
+   "issues": 80,
+   "cache_write": 740757,
+   "cache_read": 16870307,
+   "input": 1240,
+   "output": 182720,
+   "requests": 540,
+   "prompt_tokens": 17612304,
+   "long_context_requests": 2,
+   "hidden_edits": 0,
+   "hidden_rereads": 0,
+   "expands": 0,
+   "recalls": 0,
+   "edits": 73,
+   "hidden_outputs": 24,
+   "hidden_tokens": 48114,
+   "tool_output_tokens": 181174,
+   "admit_elided_tokens": 1196,
+   "compactions": 17,
+   "declined": 35,
+   "pressure": 0,
+   "errors": 0,
+   "max_prompt": 105563,
+   "chains": 8,
+   "cost_per_resolved": 0.010276185185185185,
+   "cache_hit_share": 0.9578705318736265,
+   "cost_vs_off": [
+    1.1943831615379152,
+    0.9817578927529795,
+    1.4630688986040454
+   ],
+   "prompt_vs_off": [
+    0.8160099765366432,
+    0.6516618554495306,
+    1.0236331786565327
+   ],
+   "cache_write_vs_off": [
+    0.922715592033393,
+    0.71126056896544,
+    1.2834212833130192
+   ],
+   "resolved_minus_off": [
+    -1,
+    -6,
+    3
+   ]
+  },
+  "jevh-cached": {
+   "cost": 0.490688,
+   "host_cost": 0.369084,
+   "judge_cost": 0.121604,
+   "resolved": 52,
+   "issues": 80,
+   "cache_write": 778762,
+   "cache_read": 17183557,
+   "input": 1286,
+   "output": 199554,
+   "requests": 563,
+   "prompt_tokens": 17963605,
+   "long_context_requests": 0,
+   "hidden_edits": 0,
+   "hidden_rereads": 0,
+   "expands": 2,
+   "recalls": 0,
+   "edits": 71,
+   "hidden_outputs": 29,
+   "hidden_tokens": 29246,
+   "tool_output_tokens": 171238,
+   "admit_elided_tokens": 1499,
+   "compactions": 17,
+   "declined": 29,
+   "pressure": 0,
+   "errors": 0,
+   "max_prompt": 81465,
+   "chains": 8,
+   "cost_per_resolved": 0.009436307692307692,
+   "cache_hit_share": 0.9565761994877977,
+   "cost_vs_off": [
+    1.0561447084930575,
+    0.8068926536410992,
+    1.4131568891090511
+   ],
+   "prompt_vs_off": [
+    0.8322863887974865,
+    0.5913207914571195,
+    1.1185561782781324
+   ],
+   "cache_write_vs_off": [
+    0.9700560911109977,
+    0.8241314604913499,
+    1.161170368920638
+   ],
+   "resolved_minus_off": [
+    -3,
+    -6,
+    0
+   ]
   }
  },
  "by_position": {
@@ -659,6 +761,130 @@
     "resolved": 5,
     "prompt_per_request": 68981,
     "cost": 0.041
+   }
+  },
+  "jevh-flat": {
+   "0": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 4370,
+    "cost": 0.0275
+   },
+   "1": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 9097,
+    "cost": 0.0359
+   },
+   "2": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 16990,
+    "cost": 0.0693
+   },
+   "3": {
+    "n": 8,
+    "resolved": 4,
+    "prompt_per_request": 24220,
+    "cost": 0.084
+   },
+   "4": {
+    "n": 8,
+    "resolved": 6,
+    "prompt_per_request": 33481,
+    "cost": 0.0558
+   },
+   "5": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 36595,
+    "cost": 0.0335
+   },
+   "6": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 41283,
+    "cost": 0.0828
+   },
+   "7": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 48742,
+    "cost": 0.0454
+   },
+   "8": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 51600,
+    "cost": 0.0773
+   },
+   "9": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 60132,
+    "cost": 0.0436
+   }
+  },
+  "jevh-cached": {
+   "0": {
+    "n": 8,
+    "resolved": 4,
+    "prompt_per_request": 5652,
+    "cost": 0.0334
+   },
+   "1": {
+    "n": 8,
+    "resolved": 3,
+    "prompt_per_request": 10384,
+    "cost": 0.0299
+   },
+   "2": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 15265,
+    "cost": 0.0415
+   },
+   "3": {
+    "n": 8,
+    "resolved": 4,
+    "prompt_per_request": 21031,
+    "cost": 0.0585
+   },
+   "4": {
+    "n": 8,
+    "resolved": 6,
+    "prompt_per_request": 30386,
+    "cost": 0.0625
+   },
+   "5": {
+    "n": 8,
+    "resolved": 6,
+    "prompt_per_request": 36420,
+    "cost": 0.0459
+   },
+   "6": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 39432,
+    "cost": 0.0529
+   },
+   "7": {
+    "n": 8,
+    "resolved": 7,
+    "prompt_per_request": 47908,
+    "cost": 0.0423
+   },
+   "8": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 55334,
+    "cost": 0.0855
+   },
+   "9": {
+    "n": 8,
+    "resolved": 5,
+    "prompt_per_request": 61543,
+    "cost": 0.0383
    }
   }
  }
